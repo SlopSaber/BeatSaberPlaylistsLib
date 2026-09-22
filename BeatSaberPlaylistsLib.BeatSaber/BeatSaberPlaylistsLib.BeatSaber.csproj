@@ -8,6 +8,8 @@
     <DefineConstants>BeatSaber</DefineConstants>
     <BeatSaberRelease>True</BeatSaberRelease>
     <TargetFramework>net48</TargetFramework>
+    <EnableFrameworkPathOverride>true</EnableFrameworkPathOverride>
+    <FrameworkPathOverride>$(BeatSaberDir)\Beat Saber_Data\Managed</FrameworkPathOverride>
     <LangVersion>8.0</LangVersion>
     <Nullable>Enable</Nullable>
     <Configurations>Debug-BeatSaber;Release-BeatSaber</Configurations>
@@ -52,6 +54,7 @@
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="netstandard" HintPath="$(BeatSaberDir)\Beat Saber_Data\Managed\netstandard.dll" Private="false" />
     <None Include="..\LICENSE">
       <Pack>True</Pack>
       <PackagePath></PackagePath>
