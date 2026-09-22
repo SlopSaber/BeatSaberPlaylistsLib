@@ -3,21 +3,17 @@ extern alias BeatSaber;
 using BeatSaber::UnityEngine;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using static BeatSaber::SliderController.Pool;
-using IBeatmapLevelCollection = BeatSaber::IBeatmapLevelCollection;
 
 namespace BeatSaberPlaylistsLib.Types
 {
     /// <summary>
     /// Base class for a Playlist.
     /// </summary>
-    public abstract partial class Playlist : IStagedSpriteLoad, IPlaylist
+    public abstract partial class Playlist : IPlaylist
     {
         /// <summary>
         /// Maximum width and height of the small cover image
@@ -102,7 +98,7 @@ namespace BeatSaberPlaylistsLib.Types
             }
 
             if (!CoroutineRunning)
-                SharedCoroutineStarter.instance.StartCoroutine(SpriteLoadCoroutine());
+                SharedCoroutineStarter.instance?.StartCoroutine(SpriteLoadCoroutine());
         }
 
         private static void OnSpriteLoaded(Playlist playlist)
@@ -149,8 +145,11 @@ namespace BeatSaberPlaylistsLib.Types
             }
             CoroutineRunning = false;
             if (SpriteQueue.Count > 0) // Just in case
-                SharedCoroutineStarter.instance.StartCoroutine(SpriteLoadCoroutine());
+                SharedCoroutineStarter.instance?.StartCoroutine(SpriteLoadCoroutine());
         }
+
+        /// <inheritdoc/>
+        public PlaylistLevelPack PlaylistLevelPack => new PlaylistLevelPack(this);
 
         #region IStagedSpriteLoad
 
@@ -211,59 +210,14 @@ namespace BeatSaberPlaylistsLib.Types
         #endregion
 
         /// <summary>
-        /// Name of the collection, uses <see cref="Playlist.Title"/>.
-        /// </summary>
-        string BeatSaber.IAnnotatedBeatmapLevelCollection.collectionName => Regex.Replace(Title, @"\t|\n|\r", " ");
-
-        /// <summary>
-        /// Cover image sprite.
-        /// </summary>
-        Sprite? BeatSaber.IAnnotatedBeatmapLevelCollection.coverImage => Sprite;
-
-        /// <summary>
-        /// Cover image sprite.
-        /// </summary>
-        Sprite? BeatSaber.IAnnotatedBeatmapLevelCollection.smallCoverImage => SmallSprite;
-
-        /// <summary>
         /// BeatmapLevelPack ID.
         /// </summary>
-        public string packID => BeatSaber.CustomLevelLoader.kCustomLevelPackPrefixId + playlistID;
+        public string ID => BeatSaber.CustomLevelLoader.kCustomLevelPackPrefixId + playlistID;
 
         /// <summary>
-        /// BeatmapLevelPack Name, same as name of the collection.
+        /// Returns a new array of PlaylistSongs (cast as <see cref="BeatSaber::BeatmapLevel"/>) in this playlist.
         /// </summary>
-        public string packName => Regex.Replace(Title, @"\t|\n|\r", " ");
-
-        /// <summary>
-        /// BeatmapLevelPack Short Name, same as name of the collection.
-        /// </summary>
-        public string shortPackName => Regex.Replace(Title, @"\t|\n|\r", " ");
-
-        /// <summary>
-        /// Returns itself.
-        /// </summary>
-        BeatSaber.IBeatmapLevelCollection BeatSaber.IAnnotatedBeatmapLevelCollection.beatmapLevelCollection => this;
-        /// <summary>
-        /// Returns a new array of IPreviewBeatmapLevels in this playlist.
-        /// </summary>
-#pragma warning disable CS8619 // Nullability of reference types in value doesn't match target type.
-        IReadOnlyList<BeatSaber.IPreviewBeatmapLevel> BeatSaber.IBeatmapLevelCollection.beatmapLevels
-        {
-            get
-            {
-                foreach (var song in this)
-                {
-                    song.RefreshFromSongCore();
-
-                }
-                return this.Where(s => s.PreviewBeatmapLevel != null).Select(s => s.PreviewBeatmapLevel).ToArray();
-            }
-        }
-        /// <summary>
-        /// Returns a new array of PlaylistSongs (cast as IPreviewBeatmapLevels) in this playlist.
-        /// </summary>
-        public BeatSaber.IPreviewBeatmapLevel[] BeatmapLevels
+        public BeatSaber::BeatmapLevel[] BeatmapLevels
         {
             get
             {
@@ -271,37 +225,29 @@ namespace BeatSaberPlaylistsLib.Types
                 {
                     song.RefreshFromSongCore();
                 }
-                return this.Where(s => s.PreviewBeatmapLevel != null).Cast<BeatSaber.IPreviewBeatmapLevel>().ToArray();
+                return this.Where(s => s.BeatmapLevel != null).Select(s => s.BeatmapLevel!).ToArray();
             }
         }
 
-#pragma warning restore CS8619 // Nullability of reference types in value doesn't match target type.
         /// <inheritdoc/>
-        public IPlaylistSong? Add(BeatSaber.IPreviewBeatmapLevel beatmap)
+        public IPlaylistSong? Add(BeatSaber::BeatmapLevel beatmapLevel, BeatSaber::BeatmapKey? beatmapKey = null)
         {
-            if (beatmap == null)
-                return null;
-            IPlaylistSong? song = Add((ISong)CreateFromByLevelId(beatmap.levelID, beatmap.songName, null, beatmap.levelAuthorName));
-            song?.SetPreviewBeatmap(beatmap);
-            return song;
-        }
-
-        /// <inheritdoc/>
-        public IPlaylistSong? Add(BeatSaber.IDifficultyBeatmap beatmap)
-        {
-            if (beatmap == null)
+            if (beatmapLevel == null)
                 return null;
 
-            Difficulty difficulty = new Difficulty();
-            difficulty.BeatmapDifficulty = beatmap.difficulty;
-            difficulty.Characteristic = beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName;
-            IPlaylistSong? song = Add(beatmap.level);
-            if (song != null)
+            IPlaylistSong? song = Add((ISong)CreateFromByLevelId(beatmapLevel.levelID, beatmapLevel.songName, null, string.Join(", ", beatmapLevel.allMappers.Concat(beatmapLevel.allLighters).Distinct())));
+
+            if (song != null && beatmapKey != null)
+            {
+                Difficulty difficulty = new Difficulty() {
+                    BeatmapDifficulty = beatmapKey.Value.difficulty,
+                    Characteristic = beatmapKey.Value.characteristic.SerializedName(),
+                };
                 song.Difficulties = new List<Difficulty> { difficulty };
+            }
 
             return song;
         }
-
 
         #region Default Cover
 
@@ -325,21 +271,21 @@ namespace BeatSaberPlaylistsLib.Types
 
             try
             {
-                var beatmapLevels = ((IBeatmapLevelCollection) this).beatmapLevels;
+                var beatmapLevels = BeatmapLevels;
 
-                if (beatmapLevels.Count == 1)
+                if (beatmapLevels.Length == 1)
                 {
                     using var coverStream = Utilities.GetStreamFromBeatmap(beatmapLevels[0]);
                     if (coverStream != null) await coverStream.CopyToAsync(ms);
                 }
-                else if (beatmapLevels.Count == 2)
+                else if (beatmapLevels.Length == 2)
                 {
                     using var imageStream1 = Utilities.GetStreamFromBeatmap(beatmapLevels[0]);
                     using var imageStream2 = Utilities.GetStreamFromBeatmap(beatmapLevels[1]);
                     using var coverStream = await ImageUtilities.GenerateCollage(imageStream1 ?? Stream.Null, imageStream2 ?? Stream.Null);
                     await coverStream.CopyToAsync(ms);
                 }
-                else if (beatmapLevels.Count == 3)
+                else if (beatmapLevels.Length == 3)
                 {
                     using var imageStream1 = Utilities.GetStreamFromBeatmap(beatmapLevels[0]);
                     using var imageStream2 = Utilities.GetStreamFromBeatmap(beatmapLevels[1]);
@@ -371,8 +317,5 @@ namespace BeatSaberPlaylistsLib.Types
         }
         #endregion
     }
-
-
-
 }
 #endif

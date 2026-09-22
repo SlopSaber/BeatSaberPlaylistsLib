@@ -1,0 +1,18 @@
+{
+  "id": "SixLabors.ImageSharp",
+  "name": "SixLabors.ImageSharp",
+  "author": "Six Labors and contributors",
+  "version": "2.1.12",
+  "description": "SixLabors.ImageSharp runtime dependency.",
+  "gameVersion": "1.45.1",
+  "dependsOn": {
+    "System.Memory": ">=4.0.1",
+    "System.Buffers": ">=4.0.3",
+    "System.Numerics.Vectors": ">=4.1.4",
+    "System.Runtime.CompilerServices.Unsafe": ">=5.0.0",
+    "System.Text.Encoding.CodePages": ">=5.0.0"
+  },
+  "files": [
+    "Libs/SixLabors.ImageSharp.dll"
+  ]
+}

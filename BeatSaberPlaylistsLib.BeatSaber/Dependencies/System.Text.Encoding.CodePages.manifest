@@ -1,0 +1,15 @@
+{
+  "id": "System.Text.Encoding.CodePages",
+  "name": "System.Text.Encoding.CodePages",
+  "author": "Microsoft",
+  "version": "5.0.0",
+  "description": "System.Text.Encoding.CodePages runtime dependency.",
+  "gameVersion": "1.45.1",
+  "dependsOn": {
+    "System.Memory": ">=4.0.1",
+    "System.Runtime.CompilerServices.Unsafe": ">=5.0.0"
+  },
+  "files": [
+    "Libs/System.Text.Encoding.CodePages.dll"
+  ]
+}

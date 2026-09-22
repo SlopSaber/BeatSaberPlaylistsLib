@@ -1,32 +1,37 @@
 ﻿#if BeatSaber
 extern alias BeatSaber;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Threading.Tasks;
 
 namespace BeatSaberPlaylistsLib.Types
 {
     /// <summary>
     /// Interface for a playlist.
     /// </summary>
-    public partial interface IPlaylist : BeatSaber.IBeatmapLevelPack, BeatSaber.IBeatmapLevelCollection
+    public partial interface IPlaylist : IStagedSpriteLoad
     {
         /// <summary>
-        /// Adds the <see cref="BeatSaber.IPreviewBeatmapLevel"/> to the playlist. 
-        /// Does nothing if <see cref="AllowDuplicates"/> is false and the song is already in the playlist. 
+        /// The game level-pack identifier for this playlist.
         /// </summary>
-        /// <param name="song"></param>
-        /// <returns>The added <see cref="IPlaylistSong"/> (not the <see cref="BeatSaber.IPreviewBeatmapLevel"/>), null if nothing was added.</returns>
-        IPlaylistSong? Add(BeatSaber.IPreviewBeatmapLevel song);
+        string ID { get; }
 
         /// <summary>
-        /// Adds the <see cref="BeatSaber.IDifficultyBeatmap"/> to the playlist. 
-        /// Does nothing if <see cref="AllowDuplicates"/> is false and the song is already in the playlist. 
+        /// A generated <see cref="PlaylistLevelPack"/> for this playlist.
         /// </summary>
-        /// <param name="song"></param>
-        /// <returns>The added <see cref="IPlaylistSong"/> (not the <see cref="BeatSaber.IDifficultyBeatmap"/>), null if nothing was added.</returns>
-        IPlaylistSong? Add(BeatSaber.IDifficultyBeatmap song);
+        PlaylistLevelPack PlaylistLevelPack { get; }
+
+        /// <summary>
+        /// The <see cref="BeatSaber::BeatmapLevel"/>s associated with this playlist.
+        /// </summary>
+        BeatSaber::BeatmapLevel[] BeatmapLevels { get; }
+
+        /// <summary>
+        /// Adds the <see cref="ISong"/> to the playlist.
+        /// Does nothing if <see cref="AllowDuplicates"/> is false and the song is already in the playlist.
+        /// Converts the <see cref="ISong"/> if needed.
+        /// </summary>
+        /// <param name="beatmapLevel"></param>
+        /// <param name="beatmapKey"></param>
+        /// <returns>The added IPlaylistSong, null if nothing was added.</returns>
+        IPlaylistSong? Add(BeatSaber::BeatmapLevel beatmapLevel, BeatSaber::BeatmapKey? beatmapKey = null);
     }
 }
 

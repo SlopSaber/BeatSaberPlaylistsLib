@@ -7,6 +7,7 @@
     <RootNamespace>BeatSaberPlaylistsLib</RootNamespace>
     <DefineConstants>BeatSaber</DefineConstants>
     <BeatSaberRelease>True</BeatSaberRelease>
+    <BSMTProjectType>BSIPA</BSMTProjectType>
     <TargetFramework>net48</TargetFramework>
     <EnableFrameworkPathOverride>true</EnableFrameworkPathOverride>
     <FrameworkPathOverride>$(BeatSaberDir)\Beat Saber_Data\Managed</FrameworkPathOverride>
@@ -19,8 +20,10 @@
     <!--Version should be set in Directory.Build.props-->
     <VersionType>Unofficial</VersionType>
     <CommitHash>local</CommitHash>
-    <GitBranch></GitBranch>
-    <GitModified></GitModified>
+    <GitBranch>
+    </GitBranch>
+    <GitModified>
+    </GitModified>
     <Description>A library for Beat Saber mods to interact with playlists.</Description>
     <Copyright>Copyright © Zingabopp 2021</Copyright>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
@@ -30,7 +33,6 @@
     <PackageTags>Beat Saber</PackageTags>
     <!-- Optional: Publish the repository URL in the built .nupkg (in the NuSpec <Repository> element) -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
-
     <!-- Optional: Embed source files that are not tracked by the source control manager in the PDB -->
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <!-- Optional: Build symbol package (.snupkg) to distribute the PDB containing Source Link -->
@@ -38,7 +40,7 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <Authors>Zingabopp</Authors>
     <Company>Zingabopp</Company>
-	<PackageReadmeFile>package_readme.md</PackageReadmeFile>
+    <PackageReadmeFile>package_readme.md</PackageReadmeFile>
   </PropertyGroup>
   <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
@@ -57,19 +59,26 @@
     <Reference Include="netstandard" HintPath="$(BeatSaberDir)\Beat Saber_Data\Managed\netstandard.dll" Private="false" />
     <None Include="..\LICENSE">
       <Pack>True</Pack>
-      <PackagePath></PackagePath>
+      <PackagePath>
+      </PackagePath>
     </None>
-	<None Include="package_readme.md" Pack="true" PackagePath="" />
+    <None Include="package_readme.md" Pack="true" PackagePath="" />
   </ItemGroup>
-
   <ItemGroup>
-    <PackageReference Include="BeatSaberModdingTools.Tasks" Version="1.4.1">
+    <PackageReference Include="BeatSaberModdingTools.Tasks" Version="2.0.0-beta7">
       <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <IncludeAssets>build; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="SixLabors.ImageSharp" Version="2.0.0" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="2.1.12" GeneratePathProperty="true" />
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="5.0.0" GeneratePathProperty="true" />
+    <Reference Include="DataModels">
+      <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\DataModels.dll</HintPath>
+      <Aliases>global,BeatSaber</Aliases>
+      <Publicize>True</Publicize>
+    </Reference>
     <Reference Include="System.Drawing" />
+    <Reference Include="System.IO.Compression" HintPath="$(BeatSaberDir)\Beat Saber_Data\Managed\System.IO.Compression.dll" Private="false" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="IPA.Loader">
@@ -90,9 +99,14 @@
       <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\BeatmapCore.dll</HintPath>
       <Aliases>BeatSaber</Aliases>
     </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\UnityEngine.dll</HintPath>
+      <Private>False</Private>
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
-      <Aliases>BeatSaber</Aliases>
+      <Aliases>global,BeatSaber</Aliases>
     </Reference>
     <Reference Include="UnityEngine.AudioModule">
       <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\UnityEngine.AudioModule.dll</HintPath>
@@ -105,7 +119,6 @@
   </ItemGroup>
   <Target Name="PreBuild" BeforeTargets="BeforeBuild" Condition="'$(NCRUNCH)' != '1'">
     <Error Text="The BeatSaberModdingTools.Tasks nuget package doesn't seem to be installed." Condition="'$(BSMTTaskAssembly)' == ''" />
-    
     <GetCommitInfo ProjectDir="$(ProjectDir)">
       <Output TaskParameter="CommitHash" PropertyName="CommitHash" />
       <Output TaskParameter="Branch" PropertyName="GitBranch" />
@@ -118,8 +131,13 @@
     </PropertyGroup>
   </Target>
   <Import Project="..\Shared\Shared.projitems" Label="Shared" />
-
-	<Target Name="OutputGameVersion">
-		<Message Text="::set-output name=GameVersion::$(GameVersion)" Importance="high" />
-	</Target>
+  <Target Name="StageImageDependencies" BeforeTargets="CopyBeatSaberArtifacts" Condition="'$(BeatSaberRelease)' == 'True'">
+    <Copy SourceFiles="$(PkgSixLabors_ImageSharp)\lib\net472\SixLabors.ImageSharp.dll;$(PkgSystem_Text_Encoding_CodePages)\lib\net461\System.Text.Encoding.CodePages.dll"
+          DestinationFolder="$(ArtifactDestination)\Libs" />
+    <Copy SourceFiles="Dependencies\SixLabors.ImageSharp.manifest;Dependencies\System.Text.Encoding.CodePages.manifest"
+          DestinationFolder="$(ArtifactDestination)\Plugins" />
+  </Target>
+  <Target Name="OutputGameVersion">
+    <Message Text="::set-output name=GameVersion::$(GameVersion)" Importance="high" />
+  </Target>
 </Project>

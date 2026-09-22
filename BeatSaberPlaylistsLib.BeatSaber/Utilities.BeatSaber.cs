@@ -2,12 +2,15 @@
 extern alias BeatSaber;
 using BeatSaber::UnityEngine;
 using System;
+using System.Collections;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using IPA.Loader;
-using CustomPreviewBeatmapLevel = BeatSaber::CustomPreviewBeatmapLevel;
 using Graphics = System.Drawing.Graphics;
+using System.Linq;
+using System.Reflection;
+using System.Threading;
 
 namespace BeatSaberPlaylistsLib
 {
@@ -84,14 +87,23 @@ namespace BeatSaberPlaylistsLib
         /// <summary>
         /// Gets a <see cref="Stream"/> from a <see cref="Sprite"/>
         /// </summary>
-        /// <param name="previewBeatmapLevel"></param>
+        /// <param name="beatmapLevel"></param>
         /// <returns></returns>
-        public static Stream? GetStreamFromBeatmap(BeatSaber.IPreviewBeatmapLevel? previewBeatmapLevel)
+        public static Stream? GetStreamFromBeatmap(BeatSaber::BeatmapLevel? beatmapLevel)
         {
-            if (previewBeatmapLevel is CustomPreviewBeatmapLevel customPreviewBeatmapLevel)
+            if (beatmapLevel != null && !beatmapLevel.hasPrecalculatedData && SongCore.Loader.CustomLevelLoader != null)
             {
-                var fileName = customPreviewBeatmapLevel.standardLevelInfoSaveData.coverImageFilename;
-                return new FileStream(Path.Combine(customPreviewBeatmapLevel.customLevelPath, fileName), FileMode.Open, FileAccess.Read, FileShare.Read, 0x4096, true);
+                var saveDataField = typeof(BeatSaber::CustomLevelLoader).GetField("_loadedBeatmapSaveData", BindingFlags.Instance | BindingFlags.NonPublic);
+                var saveData = saveDataField?.GetValue(SongCore.Loader.CustomLevelLoader) as IDictionary;
+                var loadedSaveData = saveData?[beatmapLevel.levelID];
+                var standardLevelInfoSaveData = loadedSaveData?.GetType().GetField("standardLevelInfoSaveData")?.GetValue(loadedSaveData);
+                var customLevelFolderInfo = loadedSaveData?.GetType().GetField("customLevelFolderInfo")?.GetValue(loadedSaveData);
+                var fileName = standardLevelInfoSaveData?.GetType().GetProperty("coverImageFilename")?.GetValue(standardLevelInfoSaveData) as string;
+                var customLevelPath = customLevelFolderInfo?.GetType().GetField("folderPath")?.GetValue(customLevelFolderInfo) as string;
+                if (!string.IsNullOrEmpty(fileName))
+                {
+                    return new FileStream(Path.Combine(customLevelPath, fileName), FileMode.Open, FileAccess.Read, FileShare.Read, 0x4096, true);
+                }
             }
             return GetDefaultImageStream();
         }

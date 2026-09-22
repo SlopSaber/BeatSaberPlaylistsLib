@@ -32,5 +32,10 @@ namespace BeatSaberPlaylistsLib.Types
         /// The whole CustomData dictionary
         /// </summary>
         public IReadOnlyDictionary<string, object>? CustomData { get; }
+        /// <summary>
+        /// Adds a <see cref="Difficulty"/> to the <see cref="PlaylistSong"/>.
+        /// </summary>
+        /// <param name="diff"></param>
+        public void AddDifficulty(Difficulty diff);
     }
 }
