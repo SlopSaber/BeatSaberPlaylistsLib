@@ -89,7 +89,7 @@
     <Message Condition="'$(ContinuousIntegrationBuild)' == 'True'"
       Text="::set-output name=zippath::$(ProjectDir)$(DestinationDirectory)$(ReleaseName).zip" Importance="high" />
   </Target>
-  <!--Copies the assembly and pdb to the Beat Saber folder.-->
+  <!--Copies the library and loader manifest to the Beat Saber folder.-->
   <Target Name="CopyToPlugins" AfterTargets="Build" Condition="'$(BeatSaberRelease)' == 'True' AND '$(DisableCopyToPlugins)' != 'True'">
     <PropertyGroup>
       <PluginDir>$(BeatSaberDir)\Plugins</PluginDir>
@@ -117,8 +117,6 @@
     <Warning Text="$(CopyToPluginsError)" Condition="'$(CopyToPluginsError)' != ''" />
     <Message Text="Copying $(OutputPath)$(AssemblyName).dll to $(LibsDir)" Importance="high"  Condition="$(CanCopyToPlugins)" />
     <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFiles="$(LibsDir)\$(AssemblyName).dll"  Condition="$(CanCopyToPlugins)" />
-    <Copy SourceFiles="$(OutputPath)$(AssemblyName).pdb" DestinationFiles="$(LibsDir)\$(AssemblyName).pdb"  Condition="$(CanCopyToPlugins)" />
-    <Copy SourceFiles="$(OutputPath)$(AssemblyName).xml" DestinationFiles="$(LibsDir)\$(AssemblyName).xml"  Condition="$(CanCopyToPlugins)" />
     <Copy SourceFiles="$(OutputPath)$(AssemblyName).manifest" DestinationFiles="$(PluginDir)\$(AssemblyName).manifest"  Condition="$(CanCopyToPlugins)" />
   </Target>
 </Project>
