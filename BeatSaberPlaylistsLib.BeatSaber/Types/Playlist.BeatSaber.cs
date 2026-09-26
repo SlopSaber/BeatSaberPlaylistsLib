@@ -71,6 +71,7 @@ namespace BeatSaberPlaylistsLib.Types
                 playlist._sprite = sprite;
                 playlist._smallSprite = sprite;
                 OnSpriteLoaded(playlist);
+                return;
             }
 
             if (downscaleImage)
@@ -82,7 +83,8 @@ namespace BeatSaberPlaylistsLib.Types
                     playlist._smallSprite = sprite;
                     OnSmallSpriteLoaded(playlist);
                     downscaleStream?.Dispose();
-                    stream?.Dispose();
+                    if (!ReferenceEquals(downscaleStream, stream))
+                        stream?.Dispose();
                 });
             }
             else
@@ -261,17 +263,22 @@ namespace BeatSaberPlaylistsLib.Types
                 return new MemoryStream(_defaultCoverData);
             }
 
-            if (!Utilities.ImageSharpLoaded() || BeatmapLevels.Length == 0)
+            if (!Utilities.ImageSharpLoaded())
             {
                 return null;
             }
 
             await _defaultCoverSemaphore.WaitAsync();
-            var ms = new MemoryStream();
-
             try
             {
+                if (_defaultCoverData != null)
+                    return new MemoryStream(_defaultCoverData);
+
                 var beatmapLevels = BeatmapLevels;
+                if (beatmapLevels.Length == 0)
+                    return null;
+
+                using var ms = new MemoryStream();
 
                 if (beatmapLevels.Length == 1)
                 {
@@ -302,18 +309,19 @@ namespace BeatSaberPlaylistsLib.Types
                     using var coverStream = await ImageUtilities.GenerateCollage(imageStream1 ?? Stream.Null, imageStream2 ?? Stream.Null, imageStream3 ?? Stream.Null, imageStream4 ?? Stream.Null);
                     await coverStream.CopyToAsync(ms);
                 }
+
+                _defaultCoverData = ms.ToArray();
+                return new MemoryStream(_defaultCoverData);
             }
             catch (Exception)
             {
-                // ignored
+                _defaultCoverData = Array.Empty<byte>();
+                return new MemoryStream(_defaultCoverData);
             }
             finally
             {
                 _defaultCoverSemaphore.Release();
             }
-
-            _defaultCoverData = ms.ToArray();
-            return ms;
         }
         #endregion
     }

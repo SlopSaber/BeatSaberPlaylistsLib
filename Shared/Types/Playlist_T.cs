@@ -201,14 +201,9 @@ namespace BeatSaberPlaylistsLib.Types
         /// <inheritdoc/>
         public override int RemoveAll(Func<IPlaylistSong, bool> match)
         {
-            int songsRemoved = 0;
-            T[]? toRemove = Songs.Where(s => match(s)).ToArray();
-            foreach (T song in toRemove)
-            {
-                if (Songs.Remove(song))
-                    songsRemoved++;
-            }
-            RaiseCoverImageChangedForDefaultCover();
+            int songsRemoved = Songs.RemoveAll(s => match(s));
+            if (songsRemoved > 0)
+                RaiseCoverImageChangedForDefaultCover();
             return songsRemoved;
         }
 
@@ -218,7 +213,8 @@ namespace BeatSaberPlaylistsLib.Types
             int removedSongs = 0;
             if (match != null)
                 removedSongs = Songs.RemoveAll(s => match(s));
-            RaiseCoverImageChangedForDefaultCover();
+            if (removedSongs > 0)
+                RaiseCoverImageChangedForDefaultCover();
             return removedSongs;
         }
 

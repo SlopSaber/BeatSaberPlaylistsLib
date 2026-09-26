@@ -24,7 +24,7 @@ namespace BeatSaberPlaylistsLib
         /// <returns></returns>
         public static async Task<Stream> GenerateCollage(Stream imageStream1, Stream imageStream2)
         {
-            var image = new Image<Rgba32>(kImageSize, kImageSize);
+            using var image = new Image<Rgba32>(kImageSize, kImageSize);
             
             await Task.Run(async () =>
             {
@@ -67,7 +67,7 @@ namespace BeatSaberPlaylistsLib
         /// <returns></returns>
         public static async Task<Stream> GenerateCollage(Stream imageStream1, Stream imageStream2, Stream imageStream3)
         {
-            var image = new Image<Rgba32>(kImageSize, kImageSize);
+            using var image = new Image<Rgba32>(kImageSize, kImageSize);
 
             await Task.Run(async () =>
             {
@@ -117,7 +117,7 @@ namespace BeatSaberPlaylistsLib
         /// <returns></returns>
         public static async Task<Stream> GenerateCollage(Stream imageStream1, Stream imageStream2, Stream imageStream3, Stream imageStream4)
         {
-            var image = new Image<Rgba32>(kImageSize, kImageSize);
+            using var image = new Image<Rgba32>(kImageSize, kImageSize);
 
             await Task.Run(async () =>
             {

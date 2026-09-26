@@ -410,13 +410,20 @@ namespace BeatSaberPlaylistsLib
             if (loadedPlaylists == null) loadedPlaylists = new List<IPlaylist>();
             if (exceptions == null) exceptions = new List<Exception>();
             if (erroredPlaylists == null) erroredPlaylists = new List<string>();
-            string[] playlistNames
-                = Directory.EnumerateFiles(PlaylistPath, "*.*").Select(p => Path.GetFileName(p)).ToArray();
-            for (int i = 0; i < playlistNames.Length; i++)
+            string[] playlistFiles = Directory.GetFiles(PlaylistPath, "*.*");
+            var firstSupportedFile = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string path in playlistFiles)
             {
+                string name = Path.GetFileNameWithoutExtension(path);
+                if (!firstSupportedFile.ContainsKey(name) && SupportsExtension(Path.GetExtension(path)))
+                    firstSupportedFile.Add(name, path);
+            }
+            for (int i = 0; i < playlistFiles.Length; i++)
+            {
+                string playlistName = Path.GetFileName(playlistFiles[i]);
                 try
                 {
-                    IPlaylist? playlist = GetPlaylist(Path.GetFileNameWithoutExtension(playlistNames[i]));
+                    IPlaylist? playlist = GetPlaylistFromFiles(Path.GetFileNameWithoutExtension(playlistName), true, null, firstSupportedFile);
                     if (playlist != null)
                         loadedPlaylists.Add(playlist);
                 }
@@ -425,7 +432,7 @@ namespace BeatSaberPlaylistsLib
                 {
                     if (exceptions == null) exceptions = new List<Exception>();
                     exceptions.Add(ex);
-                    erroredPlaylists.Add(playlistNames[i]);
+                    erroredPlaylists.Add(playlistName);
                 }
 #pragma warning restore CA1031 // Do not catch general exception types
             }
@@ -620,6 +627,9 @@ namespace BeatSaberPlaylistsLib
         /// <exception cref="InvalidOperationException">Thrown if there isn't a registered <see cref="IPlaylistHandler"/> that supports the file extension.</exception>
         /// <exception cref="PlaylistSerializationException">Wraps any exceptions thrown while deserializing.</exception>
         public IPlaylist? GetPlaylist(string playlistFileName, bool searchChildren = true, IPlaylistHandler? handler = null)
+            => GetPlaylistFromFiles(playlistFileName, searchChildren, handler, null);
+
+        private IPlaylist? GetPlaylistFromFiles(string playlistFileName, bool searchChildren, IPlaylistHandler? handler, IReadOnlyDictionary<string, string>? files)
         {
             if (string.IsNullOrEmpty(playlistFileName))
                 return null;
@@ -630,7 +640,7 @@ namespace BeatSaberPlaylistsLib
             // Try to load from file
             if (playlist == null)
             {
-                playlist = LoadPlaylistFromFile(playlistFileName, handler);
+                playlist = LoadPlaylistFromFile(playlistFileName, handler, files);
             }
             return playlist;
         }
@@ -997,17 +1007,23 @@ namespace BeatSaberPlaylistsLib
         /// <exception cref="InvalidOperationException">Thrown if no registered handlers support <paramref name="fileName"/>.</exception>
         /// <exception cref="PlaylistSerializationException"></exception>
         protected IPlaylist? LoadPlaylistFromFile(string fileName, IPlaylistHandler? playlistHandler = null)
+            => LoadPlaylistFromFile(fileName, playlistHandler, null);
+
+        private IPlaylist? LoadPlaylistFromFile(string fileName, IPlaylistHandler? playlistHandler, IReadOnlyDictionary<string, string>? availableFiles)
         {
             if (string.IsNullOrEmpty(fileName))
                 throw new ArgumentNullException(nameof(fileName), "fileName cannot be null or empty.");
             IPlaylist? playlist = null;
-            string[]? files = Directory.GetFiles(PlaylistPath) ?? Array.Empty<string>();
             string? fileExtension = Path.GetExtension(fileName);
             if (fileExtension != null && SupportsExtension(fileExtension))
                 fileName = Path.GetFileNameWithoutExtension(fileName);
-            string? file = files.FirstOrDefault(
-                f => fileName.Equals(Path.GetFileNameWithoutExtension(f), StringComparison.OrdinalIgnoreCase)
-                        && SupportsExtension(Path.GetExtension(f)));
+            string? file;
+            if (availableFiles != null)
+                availableFiles.TryGetValue(fileName, out file);
+            else
+                file = Directory.GetFiles(PlaylistPath).FirstOrDefault(
+                    f => fileName.Equals(Path.GetFileNameWithoutExtension(f), StringComparison.OrdinalIgnoreCase)
+                            && SupportsExtension(Path.GetExtension(f)));
             if (file != null)
             {
                 fileExtension = Path.GetExtension(file).TrimStart('.');

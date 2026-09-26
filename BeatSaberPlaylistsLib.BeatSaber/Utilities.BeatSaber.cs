@@ -42,6 +42,7 @@ namespace BeatSaberPlaylistsLib
         /// <returns></returns>
         public static Sprite? GetSpriteFromStream(Stream imageStream, float pixelsPerUnit = 100.0f, bool returnDefaultOnFail = true)
         {
+            Texture2D? texture = null;
             Sprite? ReturnDefault(bool useDefault)
             {
                 if (useDefault)
@@ -56,7 +57,6 @@ namespace BeatSaberPlaylistsLib
                     //Logger?.Invoke($"imageStream seems to be null or empty.", null);
                     return ReturnDefault(returnDefaultOnFail) ?? throw new ArgumentNullException(nameof(imageStream));
                 }
-                Texture2D texture = new Texture2D(2, 2);
                 byte[]? data = null;
                 if (imageStream is MemoryStream memStream)
                 {
@@ -73,13 +73,23 @@ namespace BeatSaberPlaylistsLib
                     //Logger?.Invoke($"data seems to be null or empty.", null);
                     return ReturnDefault(returnDefaultOnFail);
                 }
-                texture.LoadImage(data);
-                return Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0, 0), pixelsPerUnit);
+                texture = new Texture2D(2, 2);
+                if (!texture.LoadImage(data))
+                    return ReturnDefault(returnDefaultOnFail);
+                var sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0, 0), pixelsPerUnit);
+                if (sprite != null)
+                    texture = null;
+                return sprite ?? ReturnDefault(returnDefaultOnFail);
             }
             catch (Exception ex)
             {
                 Logger?.Invoke($"Caught unhandled exception", ex);
                 return ReturnDefault(returnDefaultOnFail);
+            }
+            finally
+            {
+                if (texture != null)
+                    BeatSaber::UnityEngine.Object.Destroy(texture);
             }
 
         }
@@ -116,18 +126,21 @@ namespace BeatSaberPlaylistsLib
         /// <returns></returns>
         public static Stream DownscaleImage(Stream original, int imageSize)
         {
-            var ms = new MemoryStream();
+            MemoryStream? resizedStream = null;
+            long originalPosition = original.CanSeek ? original.Position : 0;
             try
             {
-                var originalImage = Image.FromStream(original);
+                using var originalImage = Image.FromStream(original);
 
                 if (originalImage.Width <= imageSize && originalImage.Height <= imageSize)
                 {
+                    if (original.CanSeek)
+                        original.Position = originalPosition;
                     return original;
                 }
 
                 var resizedRect = new Rectangle(0, 0, imageSize, imageSize);
-                var resizedImage = new Bitmap(imageSize, imageSize);
+                using var resizedImage = new Bitmap(imageSize, imageSize);
 
                 resizedImage.SetResolution(originalImage.HorizontalResolution, originalImage.VerticalResolution);
 
@@ -138,11 +151,16 @@ namespace BeatSaberPlaylistsLib
                     graphics.DrawImage(originalImage, resizedRect, 0, 0, originalImage.Width, originalImage.Height, GraphicsUnit.Pixel, wrapMode);
                 }
 
-                resizedImage.Save(ms, ImageFormat.Png);
-                return ms;
+                resizedStream = new MemoryStream();
+                resizedImage.Save(resizedStream, ImageFormat.Png);
+                resizedStream.Position = 0;
+                return resizedStream;
             }
             catch (Exception)
             {
+                resizedStream?.Dispose();
+                if (original.CanSeek)
+                    original.Position = originalPosition;
                 return original;
             }
         }
