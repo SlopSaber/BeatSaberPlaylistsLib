@@ -9,7 +9,7 @@
     <BeatSaberRelease>True</BeatSaberRelease>
     <BSMTProjectType>BSIPA</BSMTProjectType>
     <TargetFramework>net48</TargetFramework>
-    <BeatSaberDir>D:\BSManager\BSInstances\1.45.1</BeatSaberDir>
+    <BeatSaberDir>D:\BSManager\BSInstances\1.45.2</BeatSaberDir>
     <GameDirectory>$(BeatSaberDir)</GameDirectory>
     <EnableFrameworkPathOverride>true</EnableFrameworkPathOverride>
     <FrameworkPathOverride>$(BeatSaberDir)\Beat Saber_Data\Managed</FrameworkPathOverride>

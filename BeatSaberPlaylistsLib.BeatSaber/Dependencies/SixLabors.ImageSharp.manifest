@@ -4,7 +4,7 @@
   "author": "Six Labors and contributors",
   "version": "2.1.12",
   "description": "SixLabors.ImageSharp runtime dependency.",
-  "gameVersion": "1.45.1",
+  "gameVersion": "1.45.2",
   "dependsOn": {
     "System.Memory": ">=4.0.1",
     "System.Buffers": ">=4.0.3",
