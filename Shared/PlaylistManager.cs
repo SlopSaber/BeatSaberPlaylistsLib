@@ -777,6 +777,17 @@ namespace BeatSaberPlaylistsLib
         }
 
         /// <summary>
+        /// Registers a playlist after its current state has been persisted and clears its changed marker.
+        /// Call on the owning context after publishing that saved state.
+        /// </summary>
+        /// <param name="playlist">The saved playlist.</param>
+        public void CompletePlaylistSave(IPlaylist playlist)
+        {
+            RegisterPlaylist(playlist, false);
+            RemoveFromChanged(playlist);
+        }
+
+        /// <summary>
         /// Attempts to remove the song with the matching hash from all loaded playlists.
         /// </summary>
         /// <param name="hash"></param>
