@@ -405,6 +405,40 @@ namespace BeatSaberPlaylistsLib
         }
 
         /// <summary>
+        /// Deletes a child directory on a worker after its queued saves finish, then detaches its manager on owner.
+        /// </summary>
+        /// <param name="managerToDelete">Current child manager to delete.</param>
+        /// <param name="recycle">Try recycling first, falling back to directory deletion.</param>
+        /// <returns>A task that completes after filesystem deletion and owner detachment.</returns>
+        public async Task DeleteChildManagerAsync(PlaylistManager managerToDelete, bool recycle = false)
+        {
+#if BeatSaber
+            await IPA.Utilities.UnityGame.SwitchToMainThreadAsync();
+#endif
+            if (!ChildManagers.Contains(managerToDelete)) throw new DirectoryNotFoundException("Folder not found under current manager");
+            string path = managerToDelete.PlaylistPath;
+            await managerToDelete.WaitForPendingSavesAsync(true);
+#if BeatSaber
+            await IPA.Utilities.UnityGame.SwitchToMainThreadAsync();
+#endif
+            if (!ChildManagers.Contains(managerToDelete) || managerToDelete.PlaylistPath != path)
+                throw new InvalidOperationException("Child manager changed before deletion.");
+            await Task.Run(() =>
+            {
+                if (recycle)
+                {
+                    try { NativeUtilities.DeleteFileOrFolder(path); }
+                    catch { Directory.Delete(path, true); }
+                }
+                else Directory.Delete(path, true);
+            });
+#if BeatSaber
+            await IPA.Utilities.UnityGame.SwitchToMainThreadAsync();
+#endif
+            if (managerToDelete.PlaylistPath == path) ChildManagers.Remove(managerToDelete);
+        }
+
+        /// <summary>
         /// Renames the current manager folder <see cref="PlaylistManager"/>.
         /// </summary>
         /// <param name="folderName"></param>
