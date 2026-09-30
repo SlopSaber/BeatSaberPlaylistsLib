@@ -2007,7 +2007,7 @@
         </member>
         <member name="M:BeatSaberPlaylistsLib.PlaylistManager.CreateChildManagerAsync(System.String)">
             <summary>
-            Prepares a new child directory on a worker and attaches it on the caller's captured context.
+            Prepares a new child directory on the worker file queue and attaches it on the owning context.
             Call on the context that owns this manager's child collection.
             </summary>
             <param name="folderName">Child directory name.</param>
