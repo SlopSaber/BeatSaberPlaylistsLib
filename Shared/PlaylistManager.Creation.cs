@@ -250,7 +250,7 @@ namespace BeatSaberPlaylistsLib
 
         private bool PublishCreatedPlaylist(IPlaylist playlist, string filename)
         {
-            if (!CanPublishFiles() || (!string.IsNullOrEmpty(playlist.Filename) && playlist.Filename != filename)) return false;
+            if (!CanPublishFiles() || !CanWritePlaylist(playlist) || (!string.IsNullOrEmpty(playlist.Filename) && playlist.Filename != filename)) return false;
             if (TryGetPlaylist(filename, out var cached) && !ReferenceEquals(cached, playlist))
                 throw new InvalidOperationException("A different playlist registered the new filename.");
             playlist.Filename = filename;

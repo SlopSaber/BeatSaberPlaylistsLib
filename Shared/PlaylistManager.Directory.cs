@@ -88,7 +88,7 @@ namespace BeatSaberPlaylistsLib
             }
         }
 
-        /// <summary>Restores owner context and awaits directory publication before a caller publishes its prepared file result.</summary>
+        /// <summary>Restores owner context and awaits storage publication before a caller publishes its prepared file result.</summary>
         public async Task WaitForFilePublicationAsync()
         {
 #if BeatSaber
