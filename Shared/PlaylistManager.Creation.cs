@@ -12,12 +12,12 @@ namespace BeatSaberPlaylistsLib
     {
         private sealed class CreationSave
         {
-            internal readonly string Directory;
+            internal readonly FileTarget Target;
             internal readonly Task<string> Save;
             internal readonly CreationSave? Previous;
-            internal CreationSave(string directory, Task<string> save, CreationSave? previous)
+            internal CreationSave(FileTarget target, Task<string> save, CreationSave? previous)
             {
-                Directory = directory;
+                Target = target;
                 Save = save;
                 Previous = previous;
             }
@@ -25,11 +25,11 @@ namespace BeatSaberPlaylistsLib
 
         private sealed class NewPlaylistJob
         {
-            internal readonly string Directory;
+            internal readonly FileTarget Target;
             internal readonly Task<IPlaylist> Save;
-            internal NewPlaylistJob(string directory, Task<IPlaylist> save)
+            internal NewPlaylistJob(FileTarget target, Task<IPlaylist> save)
             {
-                Directory = directory;
+                Target = target;
                 Save = save;
             }
         }
@@ -70,6 +70,7 @@ namespace BeatSaberPlaylistsLib
 #if BeatSaber
                 await IPA.Utilities.UnityGame.SwitchToMainThreadAsync();
 #endif
+                await WaitForDirectoryMovesAsync();
                 if (!CanPublishFiles()) throw new OperationCanceledException("Creation target changed.");
                 var playlist = handler.CreatePlaylist(string.Empty, title, author!, null);
                 if (cover != null) playlist.SetCover(cover);
@@ -78,7 +79,7 @@ namespace BeatSaberPlaylistsLib
                 if (string.IsNullOrEmpty(playlist.Filename)) throw new OperationCanceledException("Creation publication was superseded.");
                 return playlist;
             }
-            string directory = PlaylistPath;
+            var target = CaptureFileTarget();
             string[] cachedNames = System.Linq.Enumerable.ToArray(LoadedPlaylists.Keys);
             Task<IPlaylist> save;
             lock (_fileSaveLock)
@@ -88,6 +89,7 @@ namespace BeatSaberPlaylistsLib
                 {
                     try { await previous.ConfigureAwait(false); }
                     catch { /* Each caller observes its own file failure. */ }
+                    string directory = await target.GetDirectoryAsync().ConfigureAwait(false);
                     IPlaylistHandler ownedHandler = kind == 1 ? (IPlaylistHandler)new LegacyPlaylistHandler() : new BlistPlaylistHandler();
                     var playlist = (Playlist)ownedHandler.CreatePlaylist(string.Empty, title, author!, null, extension);
                     playlist.IsSnapshot = true;
@@ -102,14 +104,21 @@ namespace BeatSaberPlaylistsLib
                 });
                 _pendingFileSaves = save;
             }
-            return await PublishNewPlaylistAsync(new NewPlaylistJob(directory, save));
+            return await PublishNewPlaylistAsync(new NewPlaylistJob(target, save));
         }
 
         private async Task<IPlaylist> PublishNewPlaylistAsync(NewPlaylistJob job)
         {
             _pendingNewPlaylists.Add(job);
             IPlaylist result;
-            try { result = await job.Save; }
+            try
+            {
+                result = await job.Save;
+#if BeatSaber
+                await IPA.Utilities.UnityGame.SwitchToMainThreadAsync();
+#endif
+                await WaitForDirectoryMovesAsync();
+            }
             finally
             {
 #if BeatSaber
@@ -117,7 +126,7 @@ namespace BeatSaberPlaylistsLib
 #endif
                 _pendingNewPlaylists.Remove(job);
             }
-            if (PlaylistPath != job.Directory || !CanPublishFiles() || !PublishCreatedPlaylist(result, result.Filename))
+            if (!MatchesFileTarget(job.Target) || !PublishCreatedPlaylist(result, result.Filename))
                 throw new OperationCanceledException("Creation target changed before publication.");
             return result;
         }
@@ -138,9 +147,9 @@ namespace BeatSaberPlaylistsLib
             if (!CanPublishFiles()) throw new InvalidOperationException("Playlist manager is detached or being deleted.");
             handler ??= playlist.SuggestedExtension == null ? null : GetHandlerForExtension(playlist.SuggestedExtension);
             handler ??= GetHandlerForPlaylistType(playlist.GetType()) ?? throw new InvalidOperationException("No handler supports this playlist.");
-            string directory = PlaylistPath;
+            var target = CaptureFileTarget();
             string extension = playlist.SuggestedExtension ?? handler.DefaultExtension;
-            string sourcePath = Path.Combine(directory, playlist.Filename + "." + extension);
+            string filename = playlist.Filename;
             string[] cachedNames = System.Linq.Enumerable.ToArray(LoadedPlaylists.Keys);
             int kind = handler.GetType() == typeof(LegacyPlaylistHandler) ? 1 : handler.GetType() == typeof(BlistPlaylistHandler) ? 2 : 0;
             if (kind == 0)
@@ -153,7 +162,8 @@ namespace BeatSaberPlaylistsLib
                     {
                         try { await previous.ConfigureAwait(false); }
                         catch { /* Each caller observes its own file failure. */ }
-                        return File.ReadAllBytes(sourcePath);
+                        string directory = await target.GetDirectoryAsync().ConfigureAwait(false);
+                        return File.ReadAllBytes(Path.Combine(directory, filename + "." + extension));
                     });
                     _pendingFileSaves = read;
                 }
@@ -161,7 +171,8 @@ namespace BeatSaberPlaylistsLib
 #if BeatSaber
                 await IPA.Utilities.UnityGame.SwitchToMainThreadAsync();
 #endif
-                if (PlaylistPath != directory || !CanPublishFiles()) throw new OperationCanceledException("Clone target changed.");
+                await WaitForDirectoryMovesAsync();
+                if (!MatchesFileTarget(target)) throw new OperationCanceledException("Clone target changed.");
                 using var stream = new MemoryStream(bytes, false);
                 var clone = handler.Deserialize(stream);
                 clone.ReadOnly = false;
@@ -181,20 +192,28 @@ namespace BeatSaberPlaylistsLib
                 {
                     try { await previous.ConfigureAwait(false); }
                     catch { /* Each caller observes its own file failure. */ }
+                    string directory = await target.GetDirectoryAsync().ConfigureAwait(false);
                     IPlaylistHandler ownedHandler = kind == 1 ? (IPlaylistHandler)new LegacyPlaylistHandler() : new BlistPlaylistHandler();
                     var clone = (Playlist)ownedHandler.CreatePlaylist(string.Empty, string.Empty, null, null, extension);
                     clone.IsSnapshot = true;
-                    using (var stream = File.OpenRead(sourcePath)) ownedHandler.Populate(stream, clone);
+                    using (var stream = File.OpenRead(Path.Combine(directory, filename + "." + extension))) ownedHandler.Populate(stream, clone);
                     clone.ReadOnly = false;
                     clone.Filename = SaveNewSnapshot(ownedHandler, clone, directory, extension, cachedNames);
                     return (IPlaylist)clone;
                 });
                 _pendingFileSaves = save;
-                job = new NewPlaylistJob(directory, save);
+                job = new NewPlaylistJob(target, save);
                 _pendingNewPlaylists.Add(job);
             }
             IPlaylist result;
-            try { result = await save; }
+            try
+            {
+                result = await save;
+#if BeatSaber
+                await IPA.Utilities.UnityGame.SwitchToMainThreadAsync();
+#endif
+                await WaitForDirectoryMovesAsync();
+            }
             catch
             {
 #if BeatSaber
@@ -207,7 +226,7 @@ namespace BeatSaberPlaylistsLib
             await IPA.Utilities.UnityGame.SwitchToMainThreadAsync();
 #endif
             _pendingNewPlaylists.Remove(job);
-            if (PlaylistPath != directory || !CanPublishFiles() || !PublishCreatedPlaylist(result, result.Filename))
+            if (!MatchesFileTarget(target) || !PublishCreatedPlaylist(result, result.Filename))
                 throw new OperationCanceledException("Clone target changed before publication.");
             return result;
         }
@@ -252,7 +271,7 @@ namespace BeatSaberPlaylistsLib
                 for (var creation = pair.Value; creation != null; creation = creation.Previous)
                 {
                     // These are completed worker file tasks; reading results never joins owner publication.
-                    if (creation.Directory != PlaylistPath || creation.Save.Status != TaskStatus.RanToCompletion) continue;
+                    if (!MatchesFileTarget(creation.Target) || creation.Save.Status != TaskStatus.RanToCompletion) continue;
                     string savedName = creation.Save.Result;
                     if (!savedName.Equals(filename, StringComparison.OrdinalIgnoreCase)) continue;
                     if (!PublishCreatedPlaylist(pair.Key, savedName)) continue;
@@ -261,7 +280,7 @@ namespace BeatSaberPlaylistsLib
                 }
             foreach (var job in _pendingNewPlaylists)
             {
-                if (job.Directory != PlaylistPath || job.Save.Status != TaskStatus.RanToCompletion) continue;
+                if (!MatchesFileTarget(job.Target) || job.Save.Status != TaskStatus.RanToCompletion) continue;
                 var result = job.Save.Result;
                 if (!result.Filename.Equals(filename, StringComparison.OrdinalIgnoreCase)) continue;
                 if (!PublishCreatedPlaylist(result, result.Filename)) continue;

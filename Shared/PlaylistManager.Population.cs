@@ -57,6 +57,7 @@ namespace BeatSaberPlaylistsLib
 #endif
             if (playlist == null) throw new ArgumentNullException(nameof(playlist));
             if (stream == null) throw new ArgumentNullException(nameof(stream));
+            await WaitForDirectoryMovesAsync();
             handler ??= DefaultHandler ?? throw new InvalidOperationException("PlaylistManager has no default handler.");
             var operation = new PopulationOperation(this, playlist, handler);
             await Task.Run(() => PreparePopulation(operation, stream), cancellationToken);
@@ -86,6 +87,7 @@ namespace BeatSaberPlaylistsLib
             await IPA.Utilities.UnityGame.SwitchToMainThreadAsync();
 #endif
             var operations = new List<PopulationOperation>();
+            await WaitForDirectoryMovesAsync(refreshChildren);
             var preparations = new List<Task>();
             CaptureReloads(scan, known, refreshChildren, operations, preparations, cancellationToken);
             await Task.WhenAll(preparations);

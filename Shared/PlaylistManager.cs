@@ -352,8 +352,8 @@ namespace BeatSaberPlaylistsLib
             await IPA.Utilities.UnityGame.SwitchToMainThreadAsync();
 #endif
             if (!CanPublishFiles()) throw new InvalidOperationException("Playlist manager is detached or being deleted.");
-            string directory = PlaylistPath;
-            string path = Path.GetFullPath(Path.Combine(directory, folderName));
+            var target = CaptureFileTarget();
+            string path = Path.GetFullPath(Path.Combine(PlaylistPath, folderName));
             PlaylistManager? existing = ChildManagers.FirstOrDefault(child => string.Equals(child.PlaylistPath, path, StringComparison.OrdinalIgnoreCase));
             if (existing != null)
             {
@@ -368,7 +368,8 @@ namespace BeatSaberPlaylistsLib
                 {
                     try { await previous.ConfigureAwait(false); }
                     catch { /* Each caller observes its own file failure. */ }
-                    return new PlaylistManager(path, this);
+                    string directory = await target.GetDirectoryAsync().ConfigureAwait(false);
+                    return new PlaylistManager(Path.GetFullPath(Path.Combine(directory, folderName)), this);
                 });
                 _pendingFileSaves = prepare;
             }
@@ -376,12 +377,20 @@ namespace BeatSaberPlaylistsLib
 #if BeatSaber
             await IPA.Utilities.UnityGame.SwitchToMainThreadAsync();
 #endif
-            if (PlaylistPath != directory || !CanPublishFiles()) throw new OperationCanceledException("Child manager target changed.");
+            await WaitForDirectoryMovesAsync();
+            if (!MatchesFileTarget(target)) throw new OperationCanceledException("Child manager target changed.");
+            path = Path.GetFullPath(Path.Combine(PlaylistPath, folderName));
             existing = ChildManagers.FirstOrDefault(child => string.Equals(child.PlaylistPath, path, StringComparison.OrdinalIgnoreCase));
             if (existing != null)
             {
                 if (!existing.CanPublishFiles()) throw new OperationCanceledException("Child manager is being deleted.");
                 return existing;
+            }
+            if (prepared.PlaylistPath != path)
+            {
+                var paths = new Dictionary<PlaylistManager, string>();
+                prepared.CaptureRelocatedPaths(prepared.PlaylistPath, path, paths);
+                PublishRelocatedPaths(paths);
             }
             ChildManagers.Add(prepared);
             return prepared;
@@ -445,6 +454,7 @@ namespace BeatSaberPlaylistsLib
 #if BeatSaber
             await IPA.Utilities.UnityGame.SwitchToMainThreadAsync();
 #endif
+            await WaitForDirectoryMovesAsync(true);
             if (!ChildManagers.Contains(managerToDelete)) throw new DirectoryNotFoundException("Folder not found under current manager");
             if (managerToDelete._deleting) throw new InvalidOperationException("Child manager deletion is already in progress.");
             managerToDelete._deleting = true;
@@ -483,12 +493,16 @@ namespace BeatSaberPlaylistsLib
         /// <exception cref="InvalidOperationException">Thrown if a directory name can't be determined from <see cref="PlaylistPath"/></exception>
         public void RenameManager(string folderName)
         {
+            var active = new HashSet<Task>();
+            CaptureDirectoryMoves(active, true);
+            if (active.Count != 0) throw new InvalidOperationException("An asynchronous directory move is in progress.");
             DrainPendingFileSaves(true);
-            folderName.Replace("\\", "").Replace("/", "");
-            string rootDir = Path.GetDirectoryName(PlaylistPath) ?? throw new InvalidOperationException($"Could not determine root directory name from PlaylistPath '{PlaylistPath}'");
-            string newDirectory = Path.Combine(rootDir, folderName);
-            Directory.Move(PlaylistPath, newDirectory);
-            PlaylistPath = newDirectory;
+            string source = Path.GetFullPath(PlaylistPath);
+            string destination = GetRenameDestination(source, folderName);
+            var paths = new Dictionary<PlaylistManager, string>();
+            CaptureRelocatedPaths(source, destination, paths);
+            Directory.Move(source, destination);
+            PublishRelocatedPaths(paths);
         }
 
         /// <summary>
@@ -1053,17 +1067,20 @@ namespace BeatSaberPlaylistsLib
                 draft = ((BlistPlaylist)playlist).CaptureSnapshot().Playlist;
             if (draft == null || handler == null)
             {
+                await WaitForDirectoryMovesAsync();
+                if (!CanPublishFiles()) throw new OperationCanceledException("Save target changed.");
                 StorePlaylist(playlist, removeFromChanged);
                 return;
             }
 
-            string directory = PlaylistPath;
+            var target = CaptureFileTarget();
             string fileName = draft.Filename;
             string extension = draft.SuggestedExtension != null && handler.GetSupportedExtensions().Contains(draft.SuggestedExtension)
                 ? draft.SuggestedExtension : handler.DefaultExtension;
             long version = AdvanceSaveVersion(playlist);
             string[] cachedNames = string.IsNullOrEmpty(fileName) ? LoadedPlaylists.Keys.ToArray() : Array.Empty<string>();
             _pendingCreations.TryGetValue(playlist, out var priorCreation);
+            bool reuseCreation = priorCreation != null && MatchesFileTarget(priorCreation.Target);
             CreationSave? creation = null;
             Task<string> save;
             lock (_fileSaveLock)
@@ -1073,10 +1090,11 @@ namespace BeatSaberPlaylistsLib
                 {
                     try { await previous.ConfigureAwait(false); }
                     catch { /* Each caller observes its own save failure. */ }
+                    string directory = await target.GetDirectoryAsync().ConfigureAwait(false);
                     string savedName = fileName;
                     if (string.IsNullOrEmpty(savedName))
                     {
-                        if (priorCreation != null && priorCreation.Directory == directory)
+                        if (priorCreation != null && reuseCreation)
                         {
                             try { savedName = await priorCreation.Save.ConfigureAwait(false); }
                             catch { /* Retry a failed first save using a fresh filename. */ }
@@ -1090,7 +1108,7 @@ namespace BeatSaberPlaylistsLib
                 });
                 _pendingFileSaves = save;
                 if (string.IsNullOrEmpty(fileName))
-                    _pendingCreations[playlist] = creation = new CreationSave(directory, save, priorCreation);
+                    _pendingCreations[playlist] = creation = new CreationSave(target, save, priorCreation);
             }
             string savedFilename;
             try { savedFilename = await save; }
@@ -1105,8 +1123,9 @@ namespace BeatSaberPlaylistsLib
 #if BeatSaber
             await IPA.Utilities.UnityGame.SwitchToMainThreadAsync();
 #endif
+            await WaitForDirectoryMovesAsync();
             RemovePendingCreation(playlist, creation);
-            if (PlaylistPath != directory || !CanPublishFiles()) return;
+            if (!MatchesFileTarget(target)) return;
             if (string.IsNullOrEmpty(fileName))
             {
                 if (!PublishCreatedPlaylist(playlist, savedFilename)) return;

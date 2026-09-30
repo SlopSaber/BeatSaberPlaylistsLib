@@ -100,12 +100,14 @@ namespace BeatSaberPlaylistsLib
 #if BeatSaber
             await IPA.Utilities.UnityGame.SwitchToMainThreadAsync();
 #endif
+            await WaitForDirectoryMovesAsync(includeChildren);
             var node = CaptureScan(includeChildren);
             var errors = new List<Exception>();
             await Task.Run(() => PrepareScan(node, includeChildren, errors, cancellationToken), cancellationToken);
 #if BeatSaber
             await IPA.Utilities.UnityGame.SwitchToMainThreadAsync();
 #endif
+            await WaitForDirectoryMovesAsync(includeChildren);
             cancellationToken.ThrowIfCancellationRequested();
             var managers = new Dictionary<PlaylistManager, IPlaylist[]>();
             PublishScan(node, includeChildren, managers, errors);
