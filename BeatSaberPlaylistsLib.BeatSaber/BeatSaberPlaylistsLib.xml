@@ -2386,6 +2386,26 @@
             </summary>
             <param name="folderName">A single destination folder name under the same parent directory.</param>
         </member>
+        <member name="M:BeatSaberPlaylistsLib.PlaylistManager.QueuePlaylistFileOperation``1(BeatSaberPlaylistsLib.Types.IPlaylist,System.Func{System.String,``0})">
+            <summary>
+            Queues an isolated playlist file job while rejecting deleted or currently deleting identities.
+            Call on owner; the worker callback must not access live or native state. The task never waits for owner publication.
+            </summary>
+            <param name="playlist">Captured source identity.</param>
+            <param name="operation">Worker-safe preparation or storage using its resolved directory.</param>
+        </member>
+        <member name="M:BeatSaberPlaylistsLib.PlaylistManager.WaitForPlaylistFilePublicationAsync(BeatSaberPlaylistsLib.Types.IPlaylist)">
+            <summary>Awaits owner storage publication and rejects a removed playlist before publishing its file result.</summary>
+            <param name="playlist">Captured source identity.</param>
+        </member>
+        <member name="M:BeatSaberPlaylistsLib.PlaylistManager.DeletePlaylistAsync(BeatSaberPlaylistsLib.Types.IPlaylist,System.Boolean)">
+            <summary>
+            Deletes a registered playlist on the worker file queue, then removes that identity on owner.
+            File existence, recycling/fallback deletion and verification run on workers. Failure retains cached and dirty state.
+            </summary>
+            <param name="playlist">Current registered playlist.</param>
+            <param name="recycle">Try recycling first, falling back to deletion.</param>
+        </member>
         <member name="T:BeatSaberPlaylistsLib.PlaylistSerializationException">
             <summary>
             Wrapper for exceptions that cause errors during playlist Serialization/Deserialization.
