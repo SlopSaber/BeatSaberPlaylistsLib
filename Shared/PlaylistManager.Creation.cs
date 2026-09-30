@@ -38,7 +38,7 @@ namespace BeatSaberPlaylistsLib
         private readonly List<NewPlaylistJob> _pendingNewPlaylists = new List<NewPlaylistJob>();
 
         /// <summary>
-        /// Creates and saves a Legacy playlist on the worker file queue, then registers its identity on owner.
+        /// Creates and saves a built-in playlist on the worker file queue, then registers its identity on owner.
         /// Custom handler implementations retain owner construction/serialization.
         /// </summary>
         /// <param name="title">Playlist title.</param>
@@ -53,8 +53,11 @@ namespace BeatSaberPlaylistsLib
 #endif
             if (!CanPublishFiles()) throw new InvalidOperationException("Playlist manager is detached or being deleted.");
             var data = Utilities.SnapshotCustomData(customData);
-            var handler = GetHandlerForExtension("bplist") ?? GetHandlerForPlaylistType(typeof(LegacyPlaylist));
-            if (handler?.GetType() != typeof(LegacyPlaylistHandler))
+            var handler = DefaultHandler ?? System.Linq.Enumerable.FirstOrDefault(PlaylistHandlers.Values)
+                ?? throw new InvalidOperationException("PlaylistManager has no registered IPlaylistHandlers.");
+            int kind = handler.GetType() == typeof(LegacyPlaylistHandler) ? 1 : handler.GetType() == typeof(BlistPlaylistHandler) ? 2 : 0;
+            string extension = handler.DefaultExtension;
+            if (kind == 0)
             {
                 byte[]? cover = getCoverStream == null ? null : await Task.Run(() =>
                 {
@@ -67,7 +70,8 @@ namespace BeatSaberPlaylistsLib
 #if BeatSaber
                 await IPA.Utilities.UnityGame.SwitchToMainThreadAsync();
 #endif
-                var playlist = CreatePlaylist(string.Empty, title, author!, string.Empty);
+                if (!CanPublishFiles()) throw new OperationCanceledException("Creation target changed.");
+                var playlist = handler.CreatePlaylist(string.Empty, title, author!, null);
                 if (cover != null) playlist.SetCover(cover);
                 if (data != null) foreach (var pair in data) playlist.SetCustomData(pair.Key, pair.Value);
                 await StorePlaylistAsync(playlist);
@@ -84,14 +88,16 @@ namespace BeatSaberPlaylistsLib
                 {
                     try { await previous.ConfigureAwait(false); }
                     catch { /* Each caller observes its own file failure. */ }
-                    var playlist = new LegacyPlaylist(string.Empty, title, author) { IsSnapshot = true, SuggestedExtension = "bplist", Description = string.Empty };
+                    IPlaylistHandler ownedHandler = kind == 1 ? (IPlaylistHandler)new LegacyPlaylistHandler() : new BlistPlaylistHandler();
+                    var playlist = (Playlist)ownedHandler.CreatePlaylist(string.Empty, title, author!, null, extension);
+                    playlist.IsSnapshot = true;
                     if (getCoverStream != null)
                     {
                         using var stream = getCoverStream();
                         if (stream != null) playlist.SetCover(stream);
                     }
                     if (data != null) foreach (var pair in data) playlist.SetCustomData(pair.Key, pair.Value);
-                    playlist.Filename = SaveNewSnapshot(new LegacyPlaylistHandler(), playlist, directory, "bplist", cachedNames);
+                    playlist.Filename = SaveNewSnapshot(ownedHandler, playlist, directory, extension, cachedNames);
                     return (IPlaylist)playlist;
                 });
                 _pendingFileSaves = save;
