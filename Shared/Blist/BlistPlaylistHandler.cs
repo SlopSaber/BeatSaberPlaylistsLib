@@ -12,7 +12,7 @@ namespace BeatSaberPlaylistsLib.Blist
     /// </summary>
     public class BlistPlaylistHandler : IPlaylistHandler<BlistPlaylist>
     {
-        private static readonly JsonSerializer jsonSerializer = new JsonSerializer()
+        private static JsonSerializer CreateSerializer() => new JsonSerializer()
         {
             Formatting = Formatting.Indented,
             DateParseHandling = DateParseHandling.DateTime
@@ -58,7 +58,7 @@ namespace BeatSaberPlaylistsLib.Blist
                 ZipArchiveEntry entry = zipArchive.GetEntry("playlist.json")
                     ?? throw new PlaylistSerializationException("Container is missing 'playlist.json'");
                 using StreamReader sr = new StreamReader(entry.Open());
-                jsonSerializer.Populate(sr, target);
+                CreateSerializer().Populate(sr, target);
                 string? coverPath = target.Cover;
                 if (coverPath != null && coverPath.Length > 0)
                 {
@@ -123,7 +123,7 @@ namespace BeatSaberPlaylistsLib.Blist
 
                 }
                 using StreamWriter sw = new StreamWriter(playlistEntry.Open());
-                jsonSerializer.Serialize(sw, playlist, typeof(BlistPlaylist));
+                CreateSerializer().Serialize(sw, playlist, typeof(BlistPlaylist));
                 sw.Flush();
             }
             catch (Exception ex)
@@ -152,7 +152,7 @@ namespace BeatSaberPlaylistsLib.Blist
                 ZipArchiveEntry entry = zipArchive.GetEntry("playlist.json")
                     ?? throw new PlaylistSerializationException("Container is missing 'playlist.json'");
                 using StreamReader sr = new StreamReader(entry.Open());
-                if (!(jsonSerializer.Deserialize(sr, typeof(T)) is BlistPlaylist playlist))
+                if (!(CreateSerializer().Deserialize(sr, typeof(T)) is BlistPlaylist playlist))
                     throw new PlaylistSerializationException("Deserialized playlist was null.");
                 string? coverPath = playlist.Cover;
                 if (coverPath != null && coverPath.Length > 0)

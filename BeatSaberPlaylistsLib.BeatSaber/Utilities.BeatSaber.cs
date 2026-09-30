@@ -101,6 +101,11 @@ namespace BeatSaberPlaylistsLib
         /// <returns></returns>
         public static Stream? GetStreamFromBeatmap(BeatSaber::BeatmapLevel? beatmapLevel)
         {
+            return OpenBeatmapCover(GetBeatmapCoverPath(beatmapLevel));
+        }
+
+        internal static string? GetBeatmapCoverPath(BeatSaber::BeatmapLevel? beatmapLevel)
+        {
             if (beatmapLevel != null && !beatmapLevel.hasPrecalculatedData && SongCore.Loader.CustomLevelLoader != null)
             {
                 var saveDataField = typeof(BeatSaber::CustomLevelLoader).GetField("_loadedBeatmapSaveData", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -112,10 +117,36 @@ namespace BeatSaberPlaylistsLib
                 var customLevelPath = customLevelFolderInfo?.GetType().GetField("folderPath")?.GetValue(customLevelFolderInfo) as string;
                 if (!string.IsNullOrEmpty(fileName))
                 {
-                    return new FileStream(Path.Combine(customLevelPath, fileName), FileMode.Open, FileAccess.Read, FileShare.Read, 0x4096, true);
+                    return Path.Combine(customLevelPath, fileName);
                 }
             }
-            return GetDefaultImageStream();
+            return null;
+        }
+
+        internal static Stream? OpenBeatmapCover(string? path) => path == null ? GetDefaultImageStream()
+            : new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 0x4096, true);
+
+        internal static Sprite? GetSpriteFromBytes(byte[] data)
+        {
+            Texture2D? texture = null;
+            try
+            {
+                if (data.Length == 0) return DefaultSprite;
+                texture = new Texture2D(2, 2);
+                if (!texture.LoadImage(data)) return DefaultSprite;
+                var sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0, 0), 100.0f);
+                if (sprite != null) texture = null;
+                return sprite ?? DefaultSprite;
+            }
+            catch (Exception ex)
+            {
+                Logger?.Invoke("Caught unhandled exception", ex);
+                return DefaultSprite;
+            }
+            finally
+            {
+                if (texture != null) BeatSaber::UnityEngine.Object.Destroy(texture);
+            }
         }
 
         /// <summary>

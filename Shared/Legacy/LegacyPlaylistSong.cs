@@ -20,6 +20,8 @@ namespace BeatSaberPlaylistsLib.Legacy
 
         internal LegacyPlaylistSong CreateSnapshot()
         {
+            if (GetType() != typeof(LegacyPlaylistSong))
+                throw new NotSupportedException("Snapshots require an unmodified LegacyPlaylistSong implementation.");
             var snapshot = (LegacyPlaylistSong)MemberwiseClone();
             snapshot.Difficulties = Difficulties == null ? null : new List<Difficulty>(Difficulties);
             snapshot.CustomDataInternal = Utilities.SnapshotCustomData(CustomData);

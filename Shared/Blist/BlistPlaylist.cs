@@ -28,6 +28,64 @@ namespace BeatSaberPlaylistsLib.Blist
         { }
 
         /// <summary>
+        /// Captures an isolated playlist on its owning thread for background preparation and serialization.
+        /// </summary>
+        /// <param name="includeSongs">Whether to retain the current songs.</param>
+        /// <exception cref="NotSupportedException">The playlist or a retained song has a custom implementation.</exception>
+        public Snapshot CaptureSnapshot(bool includeSongs = true) => new Snapshot(this, includeSongs);
+
+        /// <summary>Owns a playlist copy without event subscribers or native cover assets.</summary>
+        public sealed class Snapshot
+        {
+            private readonly BlistPlaylist source;
+            private readonly Dictionary<Guid, BlistPlaylistSong> originals = new Dictionary<Guid, BlistPlaylistSong>();
+
+            /// <summary>The isolated playlist to modify and serialize.</summary>
+            public BlistPlaylist Playlist { get; }
+
+            internal Snapshot(BlistPlaylist source, bool includeSongs)
+            {
+                if (source.GetType() != typeof(BlistPlaylist))
+                    throw new NotSupportedException("Snapshots require an unmodified BlistPlaylist implementation.");
+                this.source = source;
+                Playlist = new BlistPlaylist(source.Filename, source.Title, source.Author)
+                {
+                    Description = source.Description,
+                    SuggestedExtension = source.SuggestedExtension,
+                    Cover = source.Cover,
+                    IsSnapshot = true,
+                    CustomDataInternal = Utilities.SnapshotCustomData(source.CustomData),
+                    _coverData = source._coverData == null ? null : (byte[])source._coverData.Clone()
+                };
+                if (!includeSongs) return;
+                foreach (var song in source.Songs)
+                {
+                    originals[song.playlistSongID] = song;
+                    Playlist.Songs.Add(song.CreateSnapshot());
+                }
+            }
+
+            /// <summary>
+            /// Prepares a bulk song replacement. Invoke the returned action once on the source's owning thread.
+            /// Retained songs keep their original identities and custom data; new songs are isolated from the copy.
+            /// </summary>
+            public Action PrepareSongPublication()
+            {
+                var songs = new List<BlistPlaylistSong>(Playlist.Songs.Count);
+                foreach (var song in Playlist.Songs)
+                    songs.Add(originals.TryGetValue(song.playlistSongID, out var original) ? original : song.CreateSnapshot());
+                string? cover = Playlist.Cover;
+                return () =>
+                {
+                    source.Songs = songs;
+                    source.Cover = cover;
+                    source.RaiseCoverImageChangedForDefaultCover();
+                    source.RaisePlaylistChanged();
+                };
+            }
+        }
+
+        /// <summary>
         /// Creates a new <see cref="BlistPlaylist"/> from the given parameters.
         /// </summary>
         /// <param name="fileName"></param>

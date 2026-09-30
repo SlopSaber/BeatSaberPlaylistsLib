@@ -20,6 +20,16 @@ namespace BeatSaberPlaylistsLib.Blist
         public BlistPlaylistSong()
         { }
 
+        internal BlistPlaylistSong CreateSnapshot()
+        {
+            if (GetType() != typeof(BlistPlaylistSong))
+                throw new NotSupportedException("Snapshots require an unmodified BlistPlaylistSong implementation.");
+            var snapshot = (BlistPlaylistSong)MemberwiseClone();
+            snapshot.Difficulties = Difficulties == null ? null : new List<Difficulty>(Difficulties);
+            snapshot.CustomDataInternal = Utilities.SnapshotCustomData(CustomData);
+            return snapshot;
+        }
+
         /// <summary>
         /// Creates a new <see cref="BlistPlaylistSong"/> from the given <paramref name="song"/>.
         /// </summary>

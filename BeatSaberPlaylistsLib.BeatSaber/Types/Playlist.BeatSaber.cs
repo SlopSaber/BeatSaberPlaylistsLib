@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using IPA.Utilities;
 
 namespace BeatSaberPlaylistsLib.Types
 {
@@ -55,6 +56,8 @@ namespace BeatSaberPlaylistsLib.Types
 
         private static readonly object _loaderLock = new object();
         private static bool CoroutineRunning = false;
+        private static readonly SemaphoreSlim coverPreparationSlots = new SemaphoreSlim(2, 2);
+        private int coverRevision;
 
         /// <summary>
         /// Adds a playlist to the sprite load queue.
@@ -63,63 +66,108 @@ namespace BeatSaberPlaylistsLib.Types
         /// <param name="downscaleImage"></param>
         protected async static void QueueLoadSprite(Playlist playlist, bool downscaleImage)
         {
-            var stream = playlist.HasCover ? playlist.GetCoverStream() : await playlist.GetDefaultCoverStream();
-
-            if (stream == null)
+            await UnityGame.SwitchToMainThreadAsync();
+            int revision = playlist.coverRevision;
+            await coverPreparationSlots.WaitAsync();
+            try
             {
-                var sprite = Utilities.DefaultSprite;
-                playlist._sprite = sprite;
-                playlist._smallSprite = sprite;
-                OnSpriteLoaded(playlist);
-                return;
-            }
-
-            if (downscaleImage)
-            {
-                var downscaleStream = stream != null && stream != Stream.Null ? await Task.Run(() => Utilities.DownscaleImage(stream, kSmallImageSize)) : stream;
+                await UnityGame.SwitchToMainThreadAsync();
+                if (revision != playlist.coverRevision) return;
+                var stream = playlist.HasCover ? playlist.GetCoverStream() : await playlist.GetDefaultCoverStream();
+                byte[]? bytes = stream == null ? null : await Task.Run(() =>
+                {
+                    using (stream)
+                    {
+                        Stream processed = downscaleImage && stream != Stream.Null
+                            ? Utilities.DownscaleImage(stream, kSmallImageSize) : stream;
+                        try { return processed.ToArray(); }
+                        finally { if (!ReferenceEquals(processed, stream)) processed.Dispose(); }
+                    }
+                });
+                await UnityGame.SwitchToMainThreadAsync();
+                if (revision != playlist.coverRevision) return;
+                var starter = SharedCoroutineStarter.instance;
+                if (starter == null) return;
+                var published = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 SpriteQueue.Enqueue(() =>
                 {
-                    var sprite = Utilities.GetSpriteFromStream(downscaleStream ?? Stream.Null);
-                    playlist._smallSprite = sprite;
-                    OnSmallSpriteLoaded(playlist);
-                    downscaleStream?.Dispose();
-                    if (!ReferenceEquals(downscaleStream, stream))
-                        stream?.Dispose();
+                    try
+                    {
+                        if (revision != playlist.coverRevision) return;
+                        var sprite = bytes == null ? Utilities.DefaultSprite : Utilities.GetSpriteFromBytes(bytes);
+                        if (downscaleImage && bytes != null)
+                        {
+                            playlist._smallSprite = sprite;
+                            OnSmallSpriteLoaded(playlist);
+                        }
+                        else
+                        {
+                            playlist._sprite = sprite;
+                            playlist._smallSprite = sprite;
+                            OnSpriteLoaded(playlist);
+                        }
+                    }
+                    finally
+                    {
+                        if (revision == playlist.coverRevision)
+                        {
+                            if (downscaleImage) playlist.SmallSpriteLoadQueued = false;
+                            else playlist.SpriteLoadQueued = false;
+                        }
+                        published.TrySetResult(true);
+                    }
                 });
+                if (!CoroutineRunning) starter.StartCoroutine(SpriteLoadCoroutine());
+                await published.Task;
             }
-            else
+            catch (Exception ex)
             {
-                SpriteQueue.Enqueue(() =>
-                {
-                    var sprite = Utilities.GetSpriteFromStream(stream ?? Stream.Null);
-                    playlist._sprite = sprite;
-                    playlist._smallSprite = sprite;
-                    OnSpriteLoaded(playlist);
-                    stream?.Dispose();
-                });
+                await UnityGame.SwitchToMainThreadAsync();
+                Utilities.Logger?.Invoke("Preparing playlist cover failed.", ex);
             }
-
-            if (!CoroutineRunning)
-                SharedCoroutineStarter.instance?.StartCoroutine(SpriteLoadCoroutine());
+            finally
+            {
+                coverPreparationSlots.Release();
+                await UnityGame.SwitchToMainThreadAsync();
+                if (revision == playlist.coverRevision)
+                {
+                    if (downscaleImage) playlist.SmallSpriteLoadQueued = false;
+                    else playlist.SpriteLoadQueued = false;
+                }
+            }
         }
 
         private static void OnSpriteLoaded(Playlist playlist)
         {
+            int revision = playlist.coverRevision;
             playlist.SmallSpriteWasLoaded = true;
             playlist.SpriteWasLoaded = true;
-            playlist.SpriteLoaded?.Invoke(playlist, null);
-            playlist._previousSprite = null;
-            playlist._previousSmallSprite = null;
-            playlist.SpriteLoadQueued = false;
-            playlist.SmallSpriteLoadQueued = false;
+            try { playlist.SpriteLoaded?.Invoke(playlist, null); }
+            finally
+            {
+                if (revision == playlist.coverRevision)
+                {
+                    playlist._previousSprite = null;
+                    playlist._previousSmallSprite = null;
+                    playlist.SpriteLoadQueued = false;
+                    playlist.SmallSpriteLoadQueued = false;
+                }
+            }
         }
 
         private static void OnSmallSpriteLoaded(Playlist playlist)
         {
+            int revision = playlist.coverRevision;
             playlist.SmallSpriteWasLoaded = true;
-            playlist.SpriteLoaded?.Invoke(playlist, null);
-            playlist._previousSmallSprite = null;
-            playlist.SmallSpriteLoadQueued = false;
+            try { playlist.SpriteLoaded?.Invoke(playlist, null); }
+            finally
+            {
+                if (revision == playlist.coverRevision)
+                {
+                    playlist._previousSmallSprite = null;
+                    playlist.SmallSpriteLoadQueued = false;
+                }
+            }
         }
 
         /// <summary>
@@ -143,7 +191,8 @@ namespace BeatSaberPlaylistsLib.Types
             {
                 yield return LoadWait;
                 var loader = SpriteQueue.Dequeue();
-                loader?.Invoke();
+                try { loader?.Invoke(); }
+                catch (Exception ex) { Utilities.Logger?.Invoke("Publishing playlist cover failed.", ex); }
             }
             CoroutineRunning = false;
             if (SpriteQueue.Count > 0) // Just in case
@@ -203,6 +252,11 @@ namespace BeatSaberPlaylistsLib.Types
         /// </summary>
         partial void ResetSprite()
         {
+            coverRevision++;
+            SpriteLoadQueued = false;
+            SmallSpriteLoadQueued = false;
+            SpriteWasLoaded = false;
+            SmallSpriteWasLoaded = false;
             _previousSprite = _sprite;
             _previousSmallSprite = _smallSprite;
             _sprite = null;
@@ -258,65 +312,57 @@ namespace BeatSaberPlaylistsLib.Types
         /// <inheritdoc cref="IPlaylist.GetDefaultCoverStream" />
         public async Task<Stream?> GetDefaultCoverStream()
         {
-            if (_defaultCoverData != null)
-            {
-                return new MemoryStream(_defaultCoverData);
-            }
-
-            if (!Utilities.ImageSharpLoaded())
-            {
-                return null;
-            }
-
+            await UnityGame.SwitchToMainThreadAsync();
+            if (_defaultCoverData != null) return new MemoryStream(_defaultCoverData);
+            if (!Utilities.ImageSharpLoaded()) return null;
             await _defaultCoverSemaphore.WaitAsync();
+            int revision = 0;
             try
             {
-                if (_defaultCoverData != null)
-                    return new MemoryStream(_defaultCoverData);
-
-                var beatmapLevels = BeatmapLevels;
-                if (beatmapLevels.Length == 0)
-                    return null;
-
-                using var ms = new MemoryStream();
-
-                if (beatmapLevels.Length == 1)
+                await UnityGame.SwitchToMainThreadAsync();
+                revision = coverRevision;
+                if (_defaultCoverData != null) return new MemoryStream(_defaultCoverData);
+                var paths = new List<string?>(4);
+                foreach (var song in this)
                 {
-                    using var coverStream = Utilities.GetStreamFromBeatmap(beatmapLevels[0]);
-                    if (coverStream != null) await coverStream.CopyToAsync(ms);
+                    song.RefreshFromSongCore();
+                    var level = song.BeatmapLevel;
+                    if (level == null) continue;
+                    paths.Add(Utilities.GetBeatmapCoverPath(level));
+                    if (paths.Count == 4) break;
                 }
-                else if (beatmapLevels.Length == 2)
+                if (paths.Count == 0) return null;
+                var capturedPaths = paths.ToArray();
+                var bytes = await Task.Run(async () =>
                 {
-                    using var imageStream1 = Utilities.GetStreamFromBeatmap(beatmapLevels[0]);
-                    using var imageStream2 = Utilities.GetStreamFromBeatmap(beatmapLevels[1]);
-                    using var coverStream = await ImageUtilities.GenerateCollage(imageStream1 ?? Stream.Null, imageStream2 ?? Stream.Null);
-                    await coverStream.CopyToAsync(ms);
-                }
-                else if (beatmapLevels.Length == 3)
-                {
-                    using var imageStream1 = Utilities.GetStreamFromBeatmap(beatmapLevels[0]);
-                    using var imageStream2 = Utilities.GetStreamFromBeatmap(beatmapLevels[1]);
-                    using var imageStream3 = Utilities.GetStreamFromBeatmap(beatmapLevels[2]);
-                    using var coverStream = await ImageUtilities.GenerateCollage(imageStream1 ?? Stream.Null, imageStream2 ?? Stream.Null, imageStream3 ?? Stream.Null);
-                    await coverStream.CopyToAsync(ms);
-                }
-                else
-                {
-                    using var imageStream1 = Utilities.GetStreamFromBeatmap(beatmapLevels[0]);
-                    using var imageStream2 = Utilities.GetStreamFromBeatmap(beatmapLevels[1]);
-                    using var imageStream3 = Utilities.GetStreamFromBeatmap(beatmapLevels[2]);
-                    using var imageStream4 = Utilities.GetStreamFromBeatmap(beatmapLevels[3]);
-                    using var coverStream = await ImageUtilities.GenerateCollage(imageStream1 ?? Stream.Null, imageStream2 ?? Stream.Null, imageStream3 ?? Stream.Null, imageStream4 ?? Stream.Null);
-                    await coverStream.CopyToAsync(ms);
-                }
-
-                _defaultCoverData = ms.ToArray();
-                return new MemoryStream(_defaultCoverData);
+                    var streams = new Stream[capturedPaths.Length];
+                    try
+                    {
+                        for (int i = 0; i < streams.Length; i++)
+                            streams[i] = Utilities.OpenBeatmapCover(capturedPaths[i]) ?? Stream.Null;
+                        if (streams.Length == 1) return streams[0].ToArray();
+                        using var collage = streams.Length == 2
+                            ? await ImageUtilities.GenerateCollage(streams[0], streams[1]).ConfigureAwait(false)
+                            : streams.Length == 3
+                                ? await ImageUtilities.GenerateCollage(streams[0], streams[1], streams[2]).ConfigureAwait(false)
+                                : await ImageUtilities.GenerateCollage(streams[0], streams[1], streams[2], streams[3]).ConfigureAwait(false);
+                        return collage.ToArray();
+                    }
+                    finally
+                    {
+                        foreach (var stream in streams) stream?.Dispose();
+                    }
+                });
+                await UnityGame.SwitchToMainThreadAsync();
+                if (revision == coverRevision) _defaultCoverData = bytes;
+                return new MemoryStream(bytes);
             }
             catch (Exception)
             {
-                _defaultCoverData = Array.Empty<byte>();
-                return new MemoryStream(_defaultCoverData);
+                await UnityGame.SwitchToMainThreadAsync();
+                var empty = Array.Empty<byte>();
+                if (revision == coverRevision) _defaultCoverData = empty;
+                return new MemoryStream(empty);
             }
             finally
             {

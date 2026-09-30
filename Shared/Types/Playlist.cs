@@ -108,6 +108,17 @@ namespace BeatSaberPlaylistsLib.Types
         protected void RaiseCoverImageChanged()
         {
             if (IsSnapshot) return;
+#if BeatSaber
+            if (!IPA.Utilities.UnityGame.OnMainThread)
+            {
+                _ = IPA.Utilities.Async.UnityMainThreadTaskScheduler.Factory.StartNew(() =>
+                {
+                    try { RaiseCoverImageChanged(); }
+                    catch (Exception ex) { Utilities.Logger?.Invoke("Notifying playlist cover change failed.", ex); }
+                });
+                return;
+            }
+#endif
             ResetSprite();
             CoverImageChanged?.Invoke(this, EventArgs.Empty);
         }
@@ -208,6 +219,15 @@ namespace BeatSaberPlaylistsLib.Types
         {
             if (IsSnapshot) return;
 #if BeatSaber
+            if (!IPA.Utilities.UnityGame.OnMainThread)
+            {
+                _ = IPA.Utilities.Async.UnityMainThreadTaskScheduler.Factory.StartNew(() =>
+                {
+                    try { RaiseCoverImageChangedForDefaultCover(); }
+                    catch (Exception ex) { Utilities.Logger?.Invoke("Notifying default playlist cover change failed.", ex); }
+                });
+                return;
+            }
             if (!Utilities.ImageSharpLoaded())
             {
                 return;

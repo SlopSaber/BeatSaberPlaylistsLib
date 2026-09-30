@@ -28,6 +28,7 @@ namespace BeatSaberPlaylistsLib.Legacy
         /// Captures an isolated playlist on its owning thread for background preparation and serialization.
         /// </summary>
         /// <param name="includeSongs">Whether to retain the current songs.</param>
+        /// <exception cref="NotSupportedException">The playlist or a retained song has a custom implementation.</exception>
         public Snapshot CaptureSnapshot(bool includeSongs = true) => new Snapshot(this, includeSongs);
 
         /// <summary>

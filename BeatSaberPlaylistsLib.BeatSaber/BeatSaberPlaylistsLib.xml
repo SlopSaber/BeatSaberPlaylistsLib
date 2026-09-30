@@ -1252,6 +1252,24 @@
             Creates an empty <see cref="T:BeatSaberPlaylistsLib.Blist.BlistPlaylist"/>.
             </summary>
         </member>
+        <member name="M:BeatSaberPlaylistsLib.Blist.BlistPlaylist.CaptureSnapshot(System.Boolean)">
+            <summary>
+            Captures an isolated playlist on its owning thread for background preparation and serialization.
+            </summary>
+            <param name="includeSongs">Whether to retain the current songs.</param>
+        </member>
+        <member name="T:BeatSaberPlaylistsLib.Blist.BlistPlaylist.Snapshot">
+            <summary>Owns a playlist copy without event subscribers or native cover assets.</summary>
+        </member>
+        <member name="P:BeatSaberPlaylistsLib.Blist.BlistPlaylist.Snapshot.Playlist">
+            <summary>The isolated playlist to modify and serialize.</summary>
+        </member>
+        <member name="M:BeatSaberPlaylistsLib.Blist.BlistPlaylist.Snapshot.PrepareSongPublication">
+            <summary>
+            Prepares a bulk song replacement. Invoke the returned action once on the source's owning thread.
+            Retained songs keep their original identities and custom data; new songs are isolated from the copy.
+            </summary>
+        </member>
         <member name="M:BeatSaberPlaylistsLib.Blist.BlistPlaylist.#ctor(System.String,System.String,System.String)">
             <summary>
             Creates a new <see cref="T:BeatSaberPlaylistsLib.Blist.BlistPlaylist"/> from the given parameters.
