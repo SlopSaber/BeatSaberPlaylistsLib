@@ -17,6 +17,7 @@ namespace BeatSaberPlaylistsLib
         private sealed class DirectoryMove
         {
             internal readonly Dictionary<PlaylistManager, string> Destinations = new Dictionary<PlaylistManager, string>();
+            internal readonly Dictionary<PlaylistManager, DirectoryLocation> Locations = new Dictionary<PlaylistManager, DirectoryLocation>();
             internal readonly TaskCompletionSource<object?> Published = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
             internal Task<Exception?> Files = Task.FromResult<Exception?>(null);
         }
@@ -45,6 +46,12 @@ namespace BeatSaberPlaylistsLib
 
         private FileTarget CaptureFileTarget()
         {
+            if (_directoryMove != null)
+            {
+                var location = _directoryMove.Locations[this];
+                if (!ReferenceEquals(_directoryLocation, location) || PlaylistPath != location.Path)
+                    throw new OperationCanceledException("Directory changed outside the active relocation.");
+            }
             if (_directoryLocation == null || _directoryLocation.Path != PlaylistPath)
                 _directoryLocation = new DirectoryLocation(PlaylistPath);
             return new FileTarget(_directoryLocation, PlaylistPath,
@@ -164,7 +171,7 @@ namespace BeatSaberPlaylistsLib
             foreach (var manager in move.Destinations.Keys)
             {
                 if (!manager.CanPublishFiles()) throw new InvalidOperationException("A descendant is being deleted.");
-                manager.CaptureFileTarget();
+                move.Locations.Add(manager, manager.CaptureFileTarget().Location);
                 lock (manager._fileSaveLock) previous.Add(manager._pendingFileSaves);
             }
             move.Files = Task.Run(async () =>
@@ -187,7 +194,8 @@ namespace BeatSaberPlaylistsLib
 #endif
                 if (error != null) ExceptionDispatchInfo.Capture(error).Throw();
                 foreach (var manager in move.Destinations.Keys)
-                    if (!manager.CanPublishFiles() || manager.PlaylistPath != manager._directoryLocation!.Path)
+                    if (!manager.CanPublishFiles() || manager.PlaylistPath != move.Locations[manager].Path
+                        || !ReferenceEquals(manager._directoryLocation, move.Locations[manager]))
                         throw new OperationCanceledException("Relocation target changed before publication.");
                 PublishRelocatedPaths(move.Destinations);
             }

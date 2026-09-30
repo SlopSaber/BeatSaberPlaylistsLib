@@ -298,16 +298,19 @@ namespace BeatSaberPlaylistsLib
             {
                 if (recycle)
                 {
-                    _ = Task.Run(() =>
+                    string filename = playlist.Filename;
+                    _ = QueueFileOperation(directory =>
                     {
+                        string file = Path.Combine(directory, filename + '.' + extension);
                         try
                         {
-                            NativeUtilities.DeleteFileOrFolder(path);
+                            NativeUtilities.DeleteFileOrFolder(file);
                         }
                         catch
                         {
-                            File.Delete(path);
+                            File.Delete(file);
                         }
+                        return true;
                     });
                 }
                 else
