@@ -13,7 +13,7 @@ namespace BeatSaberPlaylistsLib
     /// <summary>
     /// Class that manages <see cref="IPlaylistHandler"/>s and <see cref="IPlaylist"/>s.
     /// </summary>
-    public class PlaylistManager
+    public partial class PlaylistManager
     {
         /// <summary>
         /// Raised when an assembly requests consumers be notified of large changes to <see cref="PlaylistManager"/>'s contents.
