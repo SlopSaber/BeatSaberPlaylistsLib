@@ -145,6 +145,7 @@ namespace BeatSaberPlaylistsLib
 #endif
             if (playlist == null) throw new ArgumentNullException(nameof(playlist));
             if (!CanPublishFiles()) throw new InvalidOperationException("Playlist manager is detached or being deleted.");
+            RequireWritableIdentity(playlist);
             handler ??= playlist.SuggestedExtension == null ? null : GetHandlerForExtension(playlist.SuggestedExtension);
             handler ??= GetHandlerForPlaylistType(playlist.GetType()) ?? throw new InvalidOperationException("No handler supports this playlist.");
             var target = CaptureFileTarget();

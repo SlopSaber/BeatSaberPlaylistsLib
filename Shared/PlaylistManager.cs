@@ -457,7 +457,7 @@ namespace BeatSaberPlaylistsLib
 #if BeatSaber
             await IPA.Utilities.UnityGame.SwitchToMainThreadAsync();
 #endif
-            await WaitForDirectoryMovesAsync(true);
+            await WaitForStoragePublicationAsync(true);
             if (!ChildManagers.Contains(managerToDelete)) throw new DirectoryNotFoundException("Folder not found under current manager");
             if (managerToDelete._deleting) throw new InvalidOperationException("Child manager deletion is already in progress.");
             managerToDelete._deleting = true;
@@ -1059,6 +1059,7 @@ namespace BeatSaberPlaylistsLib
 #endif
             if (playlist == null) throw new ArgumentNullException(nameof(playlist));
             if (!CanPublishFiles()) throw new InvalidOperationException("Playlist manager is detached or being deleted.");
+            RequireWritableIdentity(playlist);
             IPlaylistHandler? handler = playlist.SuggestedExtension != null ? GetHandlerForExtension(playlist.SuggestedExtension) : null;
             handler ??= GetHandlerForPlaylistType(playlist.GetType());
             IPlaylist? draft = null;
@@ -1070,8 +1071,9 @@ namespace BeatSaberPlaylistsLib
                 draft = ((BlistPlaylist)playlist).CaptureSnapshot().Playlist;
             if (draft == null || handler == null)
             {
-                await WaitForDirectoryMovesAsync();
+                await WaitForStoragePublicationAsync();
                 if (!CanPublishFiles()) throw new OperationCanceledException("Save target changed.");
+                RequireWritableIdentity(playlist);
                 StorePlaylist(playlist, removeFromChanged);
                 return;
             }
@@ -1126,9 +1128,9 @@ namespace BeatSaberPlaylistsLib
 #if BeatSaber
             await IPA.Utilities.UnityGame.SwitchToMainThreadAsync();
 #endif
-            await WaitForDirectoryMovesAsync();
+            await WaitForStoragePublicationAsync();
             RemovePendingCreation(playlist, creation);
-            if (!MatchesFileTarget(target)) return;
+            if (!MatchesFileTarget(target) || !CanWritePlaylist(playlist)) return;
             if (string.IsNullOrEmpty(fileName))
             {
                 if (!PublishCreatedPlaylist(playlist, savedFilename)) return;

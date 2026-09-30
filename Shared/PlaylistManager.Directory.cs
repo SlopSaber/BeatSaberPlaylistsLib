@@ -94,7 +94,7 @@ namespace BeatSaberPlaylistsLib
 #if BeatSaber
             await IPA.Utilities.UnityGame.SwitchToMainThreadAsync();
 #endif
-            await WaitForDirectoryMovesAsync();
+            await WaitForStoragePublicationAsync();
             if (!CanPublishFiles()) throw new OperationCanceledException("File publication target is detached or being deleted.");
         }
 

@@ -73,6 +73,7 @@ namespace BeatSaberPlaylistsLib
             internal readonly HashSet<string> CachedNames;
             internal readonly List<ScanNode> Children;
             internal readonly bool Detached;
+            internal readonly long Revision;
             internal readonly Dictionary<string, ScanFile> Files = new Dictionary<string, ScanFile>(StringComparer.OrdinalIgnoreCase);
             internal string[] Names = Array.Empty<string>();
             internal bool Exists;
@@ -80,6 +81,7 @@ namespace BeatSaberPlaylistsLib
             {
                 Manager = manager;
                 Path = manager.PlaylistPath;
+                Revision = manager._fileListRevision;
                 Handlers = handlers;
                 CachedNames = cachedNames;
                 Children = children;
@@ -100,14 +102,14 @@ namespace BeatSaberPlaylistsLib
 #if BeatSaber
             await IPA.Utilities.UnityGame.SwitchToMainThreadAsync();
 #endif
-            await WaitForDirectoryMovesAsync(includeChildren);
+            await WaitForStoragePublicationAsync(includeChildren);
             var node = CaptureScan(includeChildren);
             var errors = new List<Exception>();
             await Task.Run(() => PrepareScan(node, includeChildren, errors, cancellationToken), cancellationToken);
 #if BeatSaber
             await IPA.Utilities.UnityGame.SwitchToMainThreadAsync();
 #endif
-            await WaitForDirectoryMovesAsync(includeChildren);
+            await WaitForStoragePublicationAsync(includeChildren);
             cancellationToken.ThrowIfCancellationRequested();
             var managers = new Dictionary<PlaylistManager, IPlaylist[]>();
             PublishScan(node, includeChildren, managers, errors);
@@ -194,7 +196,7 @@ namespace BeatSaberPlaylistsLib
         private static void PublishScan(ScanNode node, bool includeChildren, Dictionary<PlaylistManager, IPlaylist[]> managers, List<Exception> errors)
         {
             var owner = node.Manager;
-            if (owner.PlaylistPath != node.Path) return;
+            if (owner.PlaylistPath != node.Path || owner._fileListRevision != node.Revision) return;
             var playlists = new List<IPlaylist>(node.Names.Length);
             foreach (string name in node.Names)
             {
