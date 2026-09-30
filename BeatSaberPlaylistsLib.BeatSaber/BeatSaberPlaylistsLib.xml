@@ -2244,8 +2244,8 @@
         </member>
         <member name="M:BeatSaberPlaylistsLib.PlaylistManager.StorePlaylistAsync(BeatSaberPlaylistsLib.Types.IPlaylist,System.Boolean)">
             <summary>
-            Saves an existing built-in playlist from an owner-captured snapshot on a serialized worker queue.
-            New playlists and custom implementations retain synchronous storage. Call on the owning context.
+            Saves a built-in playlist from an owner-captured snapshot on a serialized worker queue.
+            Empty filenames are generated on workers; custom implementations retain synchronous storage.
             </summary>
             <param name="playlist">Playlist to save.</param>
             <param name="removeFromChanged">Clear its changed marker if no newer change was raised.</param>
@@ -2346,6 +2346,26 @@
             <param name="refreshChildren">Include child managers.</param>
             <param name="cancellationToken">Cancel preparation or publication.</param>
             <returns>Scanned playlists and file failures.</returns>
+        </member>
+        <member name="M:BeatSaberPlaylistsLib.PlaylistManager.CreatePlaylistAsync(System.String,System.String,System.Func{System.IO.Stream},System.Collections.Generic.IReadOnlyDictionary{System.String,System.Object})">
+            <summary>
+            Creates and saves a built-in playlist on the worker file queue, then registers its identity on owner.
+            Custom handler implementations retain owner construction/serialization.
+            </summary>
+            <param name="title">Playlist title.</param>
+            <param name="author">Playlist author.</param>
+            <param name="getCoverStream">Worker-safe factory for an exclusively owned cover stream, disposed after reading.</param>
+            <param name="customData">Metadata captured on owner before worker serialization.</param>
+            <returns>The saved, owner-registered playlist.</returns>
+        </member>
+        <member name="M:BeatSaberPlaylistsLib.PlaylistManager.ClonePlaylistAsync(BeatSaberPlaylistsLib.Types.IPlaylist,BeatSaberPlaylistsLib.Types.IPlaylistHandler)">
+            <summary>
+            Clones the current saved file into a writable playlist with a new filename and identity.
+            Exact built-in handlers read, decode and persist on workers; custom handlers deserialize on owner.
+            </summary>
+            <param name="playlist">Playlist whose saved file is copied.</param>
+            <param name="handler">Handler to use, or the registered extension/type handler.</param>
+            <returns>The saved and owner-registered writable clone.</returns>
         </member>
         <member name="T:BeatSaberPlaylistsLib.PlaylistSerializationException">
             <summary>
