@@ -2028,6 +2028,14 @@
             <param name="recycle">Send to recycling bin. Compatibility isn't guaranteed, and falls back to regular delete if it fails.</param>
             <exception cref="T:System.IO.DirectoryNotFoundException"></exception>
         </member>
+        <member name="M:BeatSaberPlaylistsLib.PlaylistManager.DeleteChildManagerAsync(BeatSaberPlaylistsLib.PlaylistManager,System.Boolean)">
+            <summary>
+            Deletes a child directory on a worker after its queued saves finish, then detaches its manager on owner.
+            </summary>
+            <param name="managerToDelete">Current child manager to delete.</param>
+            <param name="recycle">Try recycling first, falling back to directory deletion.</param>
+            <returns>A task that completes after filesystem deletion and owner detachment.</returns>
+        </member>
         <member name="M:BeatSaberPlaylistsLib.PlaylistManager.RenameManager(System.String)">
             <summary>
             Renames the current manager folder <see cref="T:BeatSaberPlaylistsLib.PlaylistManager"/>.
