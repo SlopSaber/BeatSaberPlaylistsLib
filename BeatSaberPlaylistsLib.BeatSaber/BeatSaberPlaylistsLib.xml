@@ -2234,6 +2234,21 @@
             or <paramref name="playlist"/> does not have a filename.</exception>
             <exception cref="T:BeatSaberPlaylistsLib.PlaylistSerializationException">Thrown on serialization errors.</exception>
         </member>
+        <member name="M:BeatSaberPlaylistsLib.PlaylistManager.StorePlaylistAsync(BeatSaberPlaylistsLib.Types.IPlaylist,System.Boolean)">
+            <summary>
+            Saves an existing built-in playlist from an owner-captured snapshot on a serialized worker queue.
+            New playlists and custom implementations retain synchronous storage. Call on the owning context.
+            </summary>
+            <param name="playlist">Playlist to save.</param>
+            <param name="removeFromChanged">Clear its changed marker if no newer change was raised.</param>
+        </member>
+        <member name="M:BeatSaberPlaylistsLib.PlaylistManager.WaitForPendingSavesAsync(System.Boolean)">
+            <summary>
+            Returns pending worker file writes without waiting for owner-context publication.
+            Capture on the owning context before moving/deleting paths or during shutdown.
+            </summary>
+            <param name="includeChildren">Include loaded child managers.</param>
+        </member>
         <member name="M:BeatSaberPlaylistsLib.PlaylistManager.SupportsExtension(System.String)">
             <summary>
             Returns true if a registered <see cref="T:BeatSaberPlaylistsLib.Types.IPlaylistHandler"/> supports <paramref name="extension"/>.
