@@ -230,6 +230,64 @@ namespace BeatSaberPlaylistsLib.Types
             }
         }
 
+        private readonly struct DuplicateKey
+        {
+            internal readonly bool IsNull;
+            internal readonly string? LevelId;
+            internal readonly string? Key;
+
+            internal DuplicateKey(T song)
+            {
+                IsNull = song == null;
+                LevelId = song?.LevelId;
+                Key = song?.Key;
+            }
+        }
+
+        private sealed class DuplicateKeyComparer : IEqualityComparer<DuplicateKey>
+        {
+            internal static readonly DuplicateKeyComparer Instance = new DuplicateKeyComparer();
+
+            public bool Equals(DuplicateKey x, DuplicateKey y)
+            {
+                if (x.IsNull) return y.IsNull;
+                if (y.IsNull || GetHashCode(x) != GetHashCode(y)) return false;
+                // Match IPlaylistSongComparer, including identifier-less entries that never collapse.
+                if (x.LevelId != null) return x.LevelId == y.LevelId;
+                return x.Key != null && x.Key == y.Key;
+            }
+
+            public int GetHashCode(DuplicateKey song) =>
+                238947239 ^ (song.LevelId?.GetHashCode() ?? song.Key?.GetHashCode() ?? 0);
+        }
+
+        /// <summary>
+        /// Captures song references and identifier strings on owner for isolated worker duplicate preparation.
+        /// Invoke the returned factory once on a worker. Its optional action publishes retained original songs on owner.
+        /// The caller must reject changed song sequences or identifiers before invoking the publication action.
+        /// </summary>
+        /// <returns>A worker factory returning owner publication, or null if no songs were removed.</returns>
+        public Func<Action?> CaptureDuplicateRemoval()
+        {
+            var original = Songs.ToArray();
+            var keys = new DuplicateKey[original.Length];
+            for (int i = 0; i < keys.Length; ++i) keys[i] = new DuplicateKey(original[i]);
+            return () =>
+            {
+                var seen = new HashSet<DuplicateKey>(DuplicateKeyComparer.Instance);
+                var songs = new List<T>(original.Length);
+                for (int i = 0; i < keys.Length; ++i)
+                    if (seen.Add(keys[i])) songs.Add(original[i]);
+                if (songs.Count == original.Length) return null;
+                return () =>
+                {
+                    Songs = songs;
+                    RaisePlaylistChanged();
+                    RaiseCoverImageChangedForDefaultCover();
+                };
+            };
+        }
+
 
         /// <inheritdoc/>
         public override bool TryRemoveByHash(string songHash)
