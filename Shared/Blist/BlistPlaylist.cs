@@ -34,6 +34,50 @@ namespace BeatSaberPlaylistsLib.Blist
         /// <exception cref="NotSupportedException">The playlist or a retained song has a custom implementation.</exception>
         public Snapshot CaptureSnapshot(bool includeSongs = true) => new Snapshot(this, includeSongs);
 
+        internal Func<Stream, Action> CapturePopulation()
+        {
+            var originalData = CustomDataInternal == null ? null : new Dictionary<string, object>(CustomDataInternal);
+            var draft = new BlistPlaylist(Filename, Title, Author)
+            {
+                Description = Description,
+                SuggestedExtension = SuggestedExtension,
+                Cover = Cover,
+                IsSnapshot = true,
+                _coverData = _coverData,
+                CustomDataInternal = originalData == null ? null : new Dictionary<string, object>(originalData)
+            };
+            return stream =>
+            {
+                // Dictionary values retained from the owner stay opaque; incoming JSON creates replacement values.
+                new BlistPlaylistHandler().Populate(stream, draft);
+                var changes = Utilities.PrepareCustomDataChanges(originalData, draft.CustomDataInternal);
+                bool hasCustomData = draft.CustomDataInternal != null;
+                var extensions = draft.ExtensionData;
+                var songs = draft.Songs;
+                string title = draft.Title;
+                string? author = draft.Author;
+                string? description = draft.Description;
+                string? coverPath = draft.Cover;
+                bool coverChanged = draft.SnapshotCoverChanged;
+                byte[]? cover = draft._coverData;
+                return () =>
+                {
+                    Title = title;
+                    Author = author;
+                    Description = description;
+                    Cover = coverPath;
+                    PublishPopulationData(hasCustomData, changes, extensions);
+                    Songs = songs;
+                    if (coverChanged)
+                    {
+                        _coverData = cover;
+                        RaiseCoverImageChanged();
+                    }
+                    RaiseCoverImageChangedForDefaultCover();
+                };
+            };
+        }
+
         /// <summary>Owns a playlist copy without event subscribers or native cover assets.</summary>
         public sealed class Snapshot
         {

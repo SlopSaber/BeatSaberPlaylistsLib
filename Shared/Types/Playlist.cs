@@ -14,6 +14,7 @@ namespace BeatSaberPlaylistsLib.Types
     public abstract partial class Playlist : IPlaylist, INotifyCoverChanged
     {
         internal bool IsSnapshot;
+        internal bool SnapshotCoverChanged;
         /// <inheritdoc/>
         public event EventHandler? PlaylistChanged;
 
@@ -107,7 +108,11 @@ namespace BeatSaberPlaylistsLib.Types
         /// </summary>
         protected void RaiseCoverImageChanged()
         {
-            if (IsSnapshot) return;
+            if (IsSnapshot)
+            {
+                SnapshotCoverChanged = true;
+                return;
+            }
 #if BeatSaber
             if (!IPA.Utilities.UnityGame.OnMainThread)
             {

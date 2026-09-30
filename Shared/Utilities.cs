@@ -13,6 +13,16 @@ namespace BeatSaberPlaylistsLib
     /// </summary>
     public static partial class Utilities
     {
+        internal static KeyValuePair<string, object>[] PrepareCustomDataChanges(Dictionary<string, object>? before, Dictionary<string, object>? after)
+        {
+            if (after == null) return Array.Empty<KeyValuePair<string, object>>();
+            var changes = new List<KeyValuePair<string, object>>();
+            foreach (var entry in after)
+                if (before == null || !before.TryGetValue(entry.Key, out var oldValue) || !ReferenceEquals(oldValue, entry.Value))
+                    changes.Add(entry);
+            return changes.ToArray();
+        }
+
         internal static Dictionary<string, object>? SnapshotCustomData(IReadOnlyDictionary<string, object>? data)
         {
             if (data == null) return null;

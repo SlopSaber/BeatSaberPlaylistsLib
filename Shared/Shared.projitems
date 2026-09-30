@@ -22,6 +22,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)PlaylistLibExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)PlaylistManager.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)PlaylistManager.Scan.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)PlaylistManager.Population.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)PlaylistSerializationException.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Types\Difficulty.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Types\INotifyCoverChanged.cs" />

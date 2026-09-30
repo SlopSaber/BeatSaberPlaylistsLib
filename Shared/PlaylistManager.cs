@@ -1057,7 +1057,7 @@ namespace BeatSaberPlaylistsLib
         }
 
         /// <summary>
-        /// Returns pending worker file writes without waiting for owner-context publication.
+        /// Returns the worker file queue, including writes and reload preparation, without waiting for owner publication.
         /// Capture on the owning context before moving/deleting paths or during shutdown.
         /// </summary>
         /// <param name="includeChildren">Include loaded child managers.</param>

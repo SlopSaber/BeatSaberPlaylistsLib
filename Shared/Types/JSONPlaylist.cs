@@ -19,6 +19,20 @@ namespace BeatSaberPlaylistsLib.Types
         [JsonExtensionData(ReadData = true, WriteData = false)]
         protected Dictionary<string, JToken>? ExtensionData;
 
+        internal void PublishPopulationData(bool hasCustomData, KeyValuePair<string, object>[] changes, Dictionary<string, JToken>? extensions)
+        {
+            if (hasCustomData)
+            {
+                CustomDataInternal ??= new Dictionary<string, object>();
+                foreach (var entry in changes) CustomDataInternal[entry.Key] = entry.Value;
+            }
+            if (extensions != null)
+            {
+                ExtensionData ??= new Dictionary<string, JToken>();
+                foreach (var entry in extensions) ExtensionData[entry.Key] = entry.Value;
+            }
+        }
+
         [OnDeserialized]
         private void OnDeserialized(StreamingContext context)
         {
