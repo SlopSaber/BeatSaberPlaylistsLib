@@ -196,6 +196,11 @@ namespace BeatSaberPlaylistsLib
             var playlists = new List<IPlaylist>(node.Names.Length);
             foreach (string name in node.Names)
             {
+                if (owner.TryPublishPendingCreation(name, out var created))
+                {
+                    playlists.Add(created!);
+                    continue;
+                }
                 if (owner.TryGetPlaylist(name, true, out var cached) && cached != null)
                 {
                     playlists.Add(cached);
