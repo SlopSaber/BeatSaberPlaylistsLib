@@ -72,16 +72,18 @@ namespace BeatSaberPlaylistsLib
             internal readonly Dictionary<string, ScanHandler> Handlers;
             internal readonly HashSet<string> CachedNames;
             internal readonly List<ScanNode> Children;
+            internal readonly bool Detached;
             internal readonly Dictionary<string, ScanFile> Files = new Dictionary<string, ScanFile>(StringComparer.OrdinalIgnoreCase);
             internal string[] Names = Array.Empty<string>();
             internal bool Exists;
-            internal ScanNode(PlaylistManager manager, Dictionary<string, ScanHandler> handlers, HashSet<string> cachedNames, List<ScanNode> children)
+            internal ScanNode(PlaylistManager manager, Dictionary<string, ScanHandler> handlers, HashSet<string> cachedNames, List<ScanNode> children, bool detached = false)
             {
                 Manager = manager;
                 Path = manager.PlaylistPath;
                 Handlers = handlers;
                 CachedNames = cachedNames;
                 Children = children;
+                Detached = detached;
             }
         }
 
@@ -135,7 +137,7 @@ namespace BeatSaberPlaylistsLib
         private static ScanNode CaptureNewScan(PlaylistManager ownedManager, Dictionary<string, ScanHandler> handlers)
         {
             return new ScanNode(ownedManager, handlers, new HashSet<string>(StringComparer.OrdinalIgnoreCase),
-                new List<ScanNode>());
+                new List<ScanNode>(), true);
         }
 
         private static void PrepareScan(ScanNode node, bool includeChildren, List<Exception> errors, CancellationToken token)
@@ -178,7 +180,13 @@ namespace BeatSaberPlaylistsLib
                 var ownedManager = new PlaylistManager(node.Manager, path);
                 node.Children.Add(CaptureNewScan(ownedManager, node.Handlers));
             }
-            foreach (var child in node.Children) PrepareScan(child, true, errors, token);
+            foreach (var child in node.Children)
+            {
+                token.ThrowIfCancellationRequested();
+                if (Directory.Exists(child.Path) && Directory.GetFiles(child.Path, "*.plignore").Length != 0)
+                    child.Exists = false;
+                else PrepareScan(child, true, errors, token);
+            }
         }
 
         private static void PublishScan(ScanNode node, bool includeChildren, Dictionary<PlaylistManager, IPlaylist[]> managers, List<Exception> errors)
@@ -216,6 +224,8 @@ namespace BeatSaberPlaylistsLib
             if (!includeChildren) return;
             foreach (var child in node.Children)
             {
+                if (child.Manager.PlaylistPath != child.Path
+                    || (!child.Detached && !owner.ChildManagers.Contains(child.Manager))) continue;
                 if (!child.Exists) owner.ChildManagers.Remove(child.Manager);
                 else
                 {

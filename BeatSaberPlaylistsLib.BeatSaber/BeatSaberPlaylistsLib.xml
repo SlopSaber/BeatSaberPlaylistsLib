@@ -2296,6 +2296,28 @@
             <exception cref="T:System.InvalidOperationException">Thrown if no registered handlers support <paramref name="fileName"/>.</exception>
             <exception cref="T:BeatSaberPlaylistsLib.PlaylistSerializationException"></exception>
         </member>
+        <member name="T:BeatSaberPlaylistsLib.PlaylistManager.ScanResult">
+            <summary>Owner-published playlist arrays from one asynchronous directory scan.</summary>
+        </member>
+        <member name="P:BeatSaberPlaylistsLib.PlaylistManager.ScanResult.Playlists">
+            <summary>Playlists in directory and child-manager order.</summary>
+        </member>
+        <member name="P:BeatSaberPlaylistsLib.PlaylistManager.ScanResult.PlaylistsByManager">
+            <summary>Direct playlists for each scanned manager. Treat returned arrays as read-only.</summary>
+        </member>
+        <member name="P:BeatSaberPlaylistsLib.PlaylistManager.ScanResult.Exception">
+            <summary>Individual file failures, if any.</summary>
+        </member>
+        <member name="M:BeatSaberPlaylistsLib.PlaylistManager.GetAllPlaylistsAsync(System.Boolean,System.Threading.CancellationToken)">
+            <summary>
+            Scans files and prepares detached built-in playlists on workers, then registers results on the owning context.
+            Cached playlists keep their identities and current unsaved state. Custom handlers deserialize owned bytes on owner.
+            With children enabled, discovers new directories and removes missing child managers.
+            </summary>
+            <param name="includeChildren">Scan child directories recursively.</param>
+            <param name="cancellationToken">Cancel preparation or owner publication.</param>
+            <returns>Published arrays and individual file failures.</returns>
+        </member>
         <member name="T:BeatSaberPlaylistsLib.PlaylistSerializationException">
             <summary>
             Wrapper for exceptions that cause errors during playlist Serialization/Deserialization.
