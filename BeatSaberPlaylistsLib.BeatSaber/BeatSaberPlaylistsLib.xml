@@ -1519,6 +1519,26 @@
             Creates an empty <see cref="T:BeatSaberPlaylistsLib.Legacy.LegacyPlaylist"/>.
             </summary>
         </member>
+        <member name="M:BeatSaberPlaylistsLib.Legacy.LegacyPlaylist.CaptureSnapshot(System.Boolean)">
+            <summary>
+            Captures an isolated playlist on its owning thread for background preparation and serialization.
+            </summary>
+            <param name="includeSongs">Whether to retain the current songs.</param>
+        </member>
+        <member name="T:BeatSaberPlaylistsLib.Legacy.LegacyPlaylist.Snapshot">
+            <summary>
+            Owns a playlist copy without event subscribers or native cover assets.
+            </summary>
+        </member>
+        <member name="P:BeatSaberPlaylistsLib.Legacy.LegacyPlaylist.Snapshot.Playlist">
+            <summary>The isolated playlist to modify and serialize.</summary>
+        </member>
+        <member name="M:BeatSaberPlaylistsLib.Legacy.LegacyPlaylist.Snapshot.PrepareSongPublication">
+            <summary>
+            Prepares a bulk song replacement. Invoke the returned action once on the source's owning thread.
+            Retained songs keep their original identities and custom data; new songs are isolated from the copy.
+            </summary>
+        </member>
         <member name="M:BeatSaberPlaylistsLib.Legacy.LegacyPlaylist.#ctor(System.String,System.String,System.String)">
             <summary>
             Creates a new <see cref="T:BeatSaberPlaylistsLib.Legacy.LegacyPlaylist"/> from the given parameters.
@@ -1965,6 +1985,13 @@
             <returns></returns>
             <exception cref="T:System.IO.IOException"></exception>
         </member>
+        <member name="M:BeatSaberPlaylistsLib.PlaylistManager.CreateChildManagerAsync(System.String)">
+            <summary>
+            Prepares a new child directory on a worker and attaches it on the caller's captured context.
+            Call on the context that owns this manager's child collection.
+            </summary>
+            <param name="folderName">Child directory name.</param>
+        </member>
         <member name="M:BeatSaberPlaylistsLib.PlaylistManager.DeleteChildManager(BeatSaberPlaylistsLib.PlaylistManager)">
             <summary>
             Deletes a child and its directories recursively <see cref="T:BeatSaberPlaylistsLib.PlaylistManager"/>.
@@ -2138,6 +2165,13 @@
             <returns>True if <paramref name="playlist"/> was successful registered,
             false if a playlist with the same filename is already registered.</returns>
             <exception cref="T:System.InvalidOperationException">Thrown if <paramref name="playlist"/> does not have a file name.</exception>
+        </member>
+        <member name="M:BeatSaberPlaylistsLib.PlaylistManager.CompletePlaylistSave(BeatSaberPlaylistsLib.Types.IPlaylist)">
+            <summary>
+            Registers a playlist after its current state has been persisted and clears its changed marker.
+            Call on the owning context after publishing that saved state.
+            </summary>
+            <param name="playlist">The saved playlist.</param>
         </member>
         <member name="M:BeatSaberPlaylistsLib.PlaylistManager.RemoveSongFromAll(System.String)">
             <summary>
