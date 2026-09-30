@@ -342,18 +342,47 @@ namespace BeatSaberPlaylistsLib
         }
 
         /// <summary>
-        /// Prepares a new child directory on a worker and attaches it on the caller's captured context.
+        /// Prepares a new child directory on the worker file queue and attaches it on the owning context.
         /// Call on the context that owns this manager's child collection.
         /// </summary>
         /// <param name="folderName">Child directory name.</param>
         public async Task<PlaylistManager> CreateChildManagerAsync(string folderName)
         {
-            string path = Path.GetFullPath(Path.Combine(PlaylistPath, folderName));
-            PlaylistManager? existing = ChildManagers.FirstOrDefault(child => child.PlaylistPath == path);
-            if (existing != null) return existing;
-            var prepared = await Task.Run(() => new PlaylistManager(path, this));
-            existing = ChildManagers.FirstOrDefault(child => child.PlaylistPath == path);
-            if (existing != null) return existing;
+#if BeatSaber
+            await IPA.Utilities.UnityGame.SwitchToMainThreadAsync();
+#endif
+            if (!CanPublishFiles()) throw new InvalidOperationException("Playlist manager is detached or being deleted.");
+            string directory = PlaylistPath;
+            string path = Path.GetFullPath(Path.Combine(directory, folderName));
+            PlaylistManager? existing = ChildManagers.FirstOrDefault(child => string.Equals(child.PlaylistPath, path, StringComparison.OrdinalIgnoreCase));
+            if (existing != null)
+            {
+                if (!existing.CanPublishFiles()) throw new OperationCanceledException("Child manager is being deleted.");
+                return existing;
+            }
+            Task<PlaylistManager> prepare;
+            lock (_fileSaveLock)
+            {
+                Task previous = _pendingFileSaves;
+                prepare = Task.Run(async () =>
+                {
+                    try { await previous.ConfigureAwait(false); }
+                    catch { /* Each caller observes its own file failure. */ }
+                    return new PlaylistManager(path, this);
+                });
+                _pendingFileSaves = prepare;
+            }
+            var prepared = await prepare;
+#if BeatSaber
+            await IPA.Utilities.UnityGame.SwitchToMainThreadAsync();
+#endif
+            if (PlaylistPath != directory || !CanPublishFiles()) throw new OperationCanceledException("Child manager target changed.");
+            existing = ChildManagers.FirstOrDefault(child => string.Equals(child.PlaylistPath, path, StringComparison.OrdinalIgnoreCase));
+            if (existing != null)
+            {
+                if (!existing.CanPublishFiles()) throw new OperationCanceledException("Child manager is being deleted.");
+                return existing;
+            }
             ChildManagers.Add(prepared);
             return prepared;
         }
