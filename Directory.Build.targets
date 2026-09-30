@@ -90,7 +90,7 @@
       Text="::set-output name=zippath::$(ProjectDir)$(DestinationDirectory)$(ReleaseName).zip" Importance="high" />
   </Target>
   <!--Copies the library and loader manifest to the Beat Saber folder.-->
-  <Target Name="CopyToPlugins" AfterTargets="Build" Condition="'$(BeatSaberRelease)' == 'True' AND '$(DisableCopyToPlugins)' != 'True'">
+  <Target Name="CopyToPlugins" AfterTargets="Build" Condition="'$(BeatSaberRelease)' == 'True' AND '$(DisableCopyToPlugins)' != 'True' AND '$(DisableCopyToGame)' != 'True'">
     <PropertyGroup>
       <PluginDir>$(BeatSaberDir)\Plugins</PluginDir>
       <LibsDir>$(BeatSaberDir)\Libs</LibsDir>

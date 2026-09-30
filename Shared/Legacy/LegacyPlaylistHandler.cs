@@ -12,7 +12,7 @@ namespace BeatSaberPlaylistsLib.Legacy
     /// </summary>
     public class LegacyPlaylistHandler : IPlaylistHandler<LegacyPlaylist>
     {
-        private static readonly JsonSerializer jsonSerializer = new JsonSerializer() { Formatting = Formatting.Indented };
+        private static JsonSerializer CreateSerializer() => new JsonSerializer() { Formatting = Formatting.Indented };
         /// <summary>
         /// Array of the supported extensions (no leading '.').
         /// </summary>
@@ -55,7 +55,7 @@ namespace BeatSaberPlaylistsLib.Legacy
             try
             {
                 using StreamReader sr = new StreamReader(stream);
-                jsonSerializer.Populate(sr, target);
+                CreateSerializer().Populate(sr, target);
                 target.RaiseCoverImageChangedForDefaultCover();
             }
             catch (Exception ex)
@@ -72,7 +72,7 @@ namespace BeatSaberPlaylistsLib.Legacy
             try
             {
                 using StreamReader sr = new StreamReader(stream);
-                if (!(jsonSerializer.Deserialize(sr, typeof(T)) is LegacyPlaylist playlist))
+                if (!(CreateSerializer().Deserialize(sr, typeof(T)) is LegacyPlaylist playlist))
                     throw new PlaylistSerializationException("Deserialized playlist was null.");
                 return playlist;
             }
@@ -98,7 +98,7 @@ namespace BeatSaberPlaylistsLib.Legacy
             try
             {
                 using StreamWriter sw = new StreamWriter(stream);
-                jsonSerializer.Serialize(sw, playlist, typeof(LegacyPlaylist));
+                CreateSerializer().Serialize(sw, playlist, typeof(LegacyPlaylist));
             }
             catch (Exception ex)
             {

@@ -25,6 +25,62 @@ namespace BeatSaberPlaylistsLib.Legacy
         { }
 
         /// <summary>
+        /// Captures an isolated playlist on its owning thread for background preparation and serialization.
+        /// </summary>
+        /// <param name="includeSongs">Whether to retain the current songs.</param>
+        public Snapshot CaptureSnapshot(bool includeSongs = true) => new Snapshot(this, includeSongs);
+
+        /// <summary>
+        /// Owns a playlist copy without event subscribers or native cover assets.
+        /// </summary>
+        public sealed class Snapshot
+        {
+            private readonly LegacyPlaylist source;
+            private readonly Dictionary<Guid, LegacyPlaylistSong> originals = new Dictionary<Guid, LegacyPlaylistSong>();
+
+            /// <summary>The isolated playlist to modify and serialize.</summary>
+            public LegacyPlaylist Playlist { get; }
+
+            internal Snapshot(LegacyPlaylist source, bool includeSongs)
+            {
+                if (source.GetType() != typeof(LegacyPlaylist))
+                    throw new NotSupportedException("Snapshots require an unmodified LegacyPlaylist implementation.");
+                this.source = source;
+                Playlist = new LegacyPlaylist(source.Filename, source.Title, source.Author)
+                {
+                    Description = source.Description,
+                    SuggestedExtension = source.SuggestedExtension,
+                    IsSnapshot = true,
+                    CustomDataInternal = Utilities.SnapshotCustomData(source.CustomData),
+                    _coverData = source._coverData == null ? null : (byte[])source._coverData.Clone()
+                };
+                if (!includeSongs) return;
+                foreach (var song in source.Songs)
+                {
+                    originals[song.playlistSongID] = song;
+                    Playlist.Songs.Add(song.CreateSnapshot());
+                }
+            }
+
+            /// <summary>
+            /// Prepares a bulk song replacement. Invoke the returned action once on the source's owning thread.
+            /// Retained songs keep their original identities and custom data; new songs are isolated from the copy.
+            /// </summary>
+            public Action PrepareSongPublication()
+            {
+                var songs = new List<LegacyPlaylistSong>(Playlist.Songs.Count);
+                foreach (var song in Playlist.Songs)
+                    songs.Add(originals.TryGetValue(song.playlistSongID, out var original) ? original : song.CreateSnapshot());
+                return () =>
+                {
+                    source.Songs = songs;
+                    source.RaiseCoverImageChangedForDefaultCover();
+                    source.RaisePlaylistChanged();
+                };
+            }
+        }
+
+        /// <summary>
         /// Creates a new <see cref="LegacyPlaylist"/> from the given parameters.
         /// </summary>
         /// <param name="fileName"></param>

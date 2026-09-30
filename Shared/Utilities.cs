@@ -2,6 +2,9 @@
 using System;
 using System.IO;
 using System.Reflection;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace BeatSaberPlaylistsLib
 {
@@ -10,6 +13,24 @@ namespace BeatSaberPlaylistsLib
     /// </summary>
     public static partial class Utilities
     {
+        internal static Dictionary<string, object>? SnapshotCustomData(IReadOnlyDictionary<string, object>? data)
+        {
+            if (data == null) return null;
+            var snapshot = new Dictionary<string, object>(data.Count);
+            foreach (var entry in data)
+            {
+                object value = entry.Value;
+                if (value is JToken token)
+                    value = token.DeepClone();
+                else if (value != null && !(value is string) && !value.GetType().IsPrimitive && !value.GetType().IsEnum
+                    && !(value is decimal) && !(value is DateTime) && !(value is DateTimeOffset) && !(value is Guid)
+                    && !(value is TimeSpan) && !(value is Uri))
+                    value = JToken.FromObject(value, new JsonSerializer());
+                snapshot.Add(entry.Key, value!);
+            }
+            return snapshot;
+        }
+
         internal static Stream? GetDefaultImageStream() =>
             Assembly.GetExecutingAssembly().GetManifestResourceStream("BeatSaberPlaylistsLib.Icons.DefaultIcon.png");
 

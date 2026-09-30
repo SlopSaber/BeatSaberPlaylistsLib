@@ -13,6 +13,7 @@ namespace BeatSaberPlaylistsLib.Types
     /// </summary>
     public abstract partial class Playlist : IPlaylist, INotifyCoverChanged
     {
+        internal bool IsSnapshot;
         /// <inheritdoc/>
         public event EventHandler? PlaylistChanged;
 
@@ -106,6 +107,7 @@ namespace BeatSaberPlaylistsLib.Types
         /// </summary>
         protected void RaiseCoverImageChanged()
         {
+            if (IsSnapshot) return;
             ResetSprite();
             CoverImageChanged?.Invoke(this, EventArgs.Empty);
         }
@@ -204,6 +206,7 @@ namespace BeatSaberPlaylistsLib.Types
         /// <inheritdoc/>
         public void RaiseCoverImageChangedForDefaultCover()
         {
+            if (IsSnapshot) return;
 #if BeatSaber
             if (!Utilities.ImageSharpLoaded())
             {

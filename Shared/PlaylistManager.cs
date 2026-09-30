@@ -336,6 +336,23 @@ namespace BeatSaberPlaylistsLib
         }
 
         /// <summary>
+        /// Prepares a new child directory on a worker and attaches it on the caller's captured context.
+        /// Call on the context that owns this manager's child collection.
+        /// </summary>
+        /// <param name="folderName">Child directory name.</param>
+        public async Task<PlaylistManager> CreateChildManagerAsync(string folderName)
+        {
+            string path = Path.GetFullPath(Path.Combine(PlaylistPath, folderName));
+            PlaylistManager? existing = ChildManagers.FirstOrDefault(child => child.PlaylistPath == path);
+            if (existing != null) return existing;
+            var prepared = await Task.Run(() => new PlaylistManager(path, this));
+            existing = ChildManagers.FirstOrDefault(child => child.PlaylistPath == path);
+            if (existing != null) return existing;
+            ChildManagers.Add(prepared);
+            return prepared;
+        }
+
+        /// <summary>
         /// Deletes a child and its directories recursively <see cref="PlaylistManager"/>.
         /// </summary>
         /// <param name="managerToDelete"></param>

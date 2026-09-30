@@ -18,6 +18,14 @@ namespace BeatSaberPlaylistsLib.Legacy
         public LegacyPlaylistSong()
         { }
 
+        internal LegacyPlaylistSong CreateSnapshot()
+        {
+            var snapshot = (LegacyPlaylistSong)MemberwiseClone();
+            snapshot.Difficulties = Difficulties == null ? null : new List<Difficulty>(Difficulties);
+            snapshot.CustomDataInternal = Utilities.SnapshotCustomData(CustomData);
+            return snapshot;
+        }
+
         /// <summary>
         /// Creates a new <see cref="LegacyPlaylistSong"/> from the given <paramref name="song"/>.
         /// </summary>
