@@ -39,7 +39,6 @@ namespace BeatSaberPlaylistsLib.Legacy
                 Description = Description,
                 SuggestedExtension = SuggestedExtension,
                 IsSnapshot = true,
-                _coverData = _coverData,
                 CustomDataInternal = originalData == null ? null : new Dictionary<string, object>(originalData)
             };
             return stream =>

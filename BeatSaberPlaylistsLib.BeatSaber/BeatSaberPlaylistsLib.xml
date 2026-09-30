@@ -2252,7 +2252,7 @@
         </member>
         <member name="M:BeatSaberPlaylistsLib.PlaylistManager.WaitForPendingSavesAsync(System.Boolean)">
             <summary>
-            Returns pending worker file writes without waiting for owner-context publication.
+            Returns the worker file queue, including writes and reload preparation, without waiting for owner publication.
             Capture on the owning context before moving/deleting paths or during shutdown.
             </summary>
             <param name="includeChildren">Include loaded child managers.</param>
@@ -2325,6 +2325,27 @@
             <param name="includeChildren">Scan child directories recursively.</param>
             <param name="cancellationToken">Cancel preparation or owner publication.</param>
             <returns>Published arrays and individual file failures.</returns>
+        </member>
+        <member name="M:BeatSaberPlaylistsLib.PlaylistManager.PopulatePlaylistAsync(BeatSaberPlaylistsLib.Types.IPlaylist,System.IO.Stream,BeatSaberPlaylistsLib.Types.IPlaylistHandler,System.Threading.CancellationToken)">
+            <summary>
+            Replaces a registered playlist's songs and populates metadata from a caller-transferred readable stream.
+            Exact built-in handlers decode on workers; custom implementations populate owned bytes on owner.
+            Retains the playlist identity, omitted metadata and untouched custom objects. Does not raise PlaylistChanged.
+            </summary>
+            <param name="playlist">Current registered playlist.</param>
+            <param name="stream">Exclusively owned stream; do not access or dispose it until this task completes.</param>
+            <param name="handler">Handler to use, or this manager's default.</param>
+            <param name="cancellationToken">Cancel preparation or publication.</param>
+            <returns>False if the playlist changed before publication.</returns>
+        </member>
+        <member name="M:BeatSaberPlaylistsLib.PlaylistManager.RefreshPlaylistsAsync(System.Boolean,System.Threading.CancellationToken)">
+            <summary>
+            Scans and reloads playlists with worker file/JSON preparation and owner publication.
+            Keeps the legacy default-handler extension selection. File failures preserve built-in live data and are returned individually.
+            </summary>
+            <param name="refreshChildren">Include child managers.</param>
+            <param name="cancellationToken">Cancel preparation or publication.</param>
+            <returns>Scanned playlists and file failures.</returns>
         </member>
         <member name="T:BeatSaberPlaylistsLib.PlaylistSerializationException">
             <summary>

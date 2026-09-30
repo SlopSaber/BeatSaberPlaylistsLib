@@ -43,7 +43,6 @@ namespace BeatSaberPlaylistsLib.Blist
                 SuggestedExtension = SuggestedExtension,
                 Cover = Cover,
                 IsSnapshot = true,
-                _coverData = _coverData,
                 CustomDataInternal = originalData == null ? null : new Dictionary<string, object>(originalData)
             };
             return stream =>
