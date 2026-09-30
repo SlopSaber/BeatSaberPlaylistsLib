@@ -1107,6 +1107,14 @@
         <member name="M:BeatSaberPlaylistsLib.Types.Playlist`1.RemoveDuplicates">
             <inheritdoc/>
         </member>
+        <member name="M:BeatSaberPlaylistsLib.Types.Playlist`1.CaptureDuplicateRemoval">
+            <summary>
+            Captures song references and identifier strings on owner for isolated worker duplicate preparation.
+            Invoke the returned factory once on a worker. Its optional action publishes retained original songs on owner.
+            The caller must reject changed song sequences or identifiers before invoking the publication action.
+            </summary>
+            <returns>A worker factory returning owner publication, or null if no songs were removed.</returns>
+        </member>
         <member name="M:BeatSaberPlaylistsLib.Types.Playlist`1.TryRemoveByHash(System.String)">
             <inheritdoc/>
         </member>
