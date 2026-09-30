@@ -2367,6 +2367,25 @@
             <param name="handler">Handler to use, or the registered extension/type handler.</param>
             <returns>The saved and owner-registered writable clone.</returns>
         </member>
+        <member name="M:BeatSaberPlaylistsLib.PlaylistManager.QueueFileOperation``1(System.Func{System.String,``0})">
+            <summary>
+            Queues an exclusively owned file operation behind this manager's worker files and directory relocation.
+            Call on owner; the callback runs on a worker and receives its resolved directory. It must not access live or native state.
+            The returned task never waits for owner publication and is safe to drain during shutdown.
+            </summary>
+            <param name="operation">Worker-safe preparation or storage using captured owned input.</param>
+            <returns>The worker file result.</returns>
+        </member>
+        <member name="M:BeatSaberPlaylistsLib.PlaylistManager.WaitForFilePublicationAsync">
+            <summary>Restores owner context and awaits directory publication before a caller publishes its prepared file result.</summary>
+        </member>
+        <member name="M:BeatSaberPlaylistsLib.PlaylistManager.RenameManagerAsync(System.String)">
+            <summary>
+            Moves this folder on a worker after pending descendant file jobs and publishes all retained manager paths on owner.
+            Overlapping async writes follow the successful destination or the original directory after a failed move.
+            </summary>
+            <param name="folderName">A single destination folder name under the same parent directory.</param>
+        </member>
         <member name="T:BeatSaberPlaylistsLib.PlaylistSerializationException">
             <summary>
             Wrapper for exceptions that cause errors during playlist Serialization/Deserialization.
